@@ -14,6 +14,9 @@ export function ProductCard({ product }: { product: Product }) {
   const [busy, setBusy] = useState(false);
   const img = product.images?.[0]?.url;
   const price = discountedPrice(product.basePrice, product.discountPercent);
+  const stock = stockCount(product);
+  const soldOut = isSoldOut(product);
+  const lowStock = !soldOut && stock !== undefined && stock <= 2;
 
   const toggleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -52,11 +55,15 @@ export function ProductCard({ product }: { product: Product }) {
             No image
           </div>
         )}
-        {!!product.discountPercent && (
+        {soldOut ? (
+          <div className="absolute inset-x-0 top-0 bg-foreground/85 px-3 py-2 text-center text-xs font-black uppercase tracking-widest text-background">
+            Sold
+          </div>
+        ) : product.discountPercent ? (
           <span className="absolute left-3 top-3 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive-foreground">
             -{product.discountPercent}%
           </span>
-        )}
+        ) : null}
         <button
           onClick={toggleLike}
           aria-label={liked ? "Unlike" : "Like"}
@@ -84,9 +91,22 @@ export function ProductCard({ product }: { product: Product }) {
           {product.size && <>Size {product.size} · </>}
           {product.condition?.replace("_", " ").toLowerCase()}
         </p>
+        {lowStock && (
+          <p className="text-xs font-semibold text-destructive">Only {stock} left in stock</p>
+        )}
       </div>
     </Link>
   );
+}
+
+function stockCount(product: Product) {
+  const stock = product.quantity ?? (product as any).stock ?? (product as any).availableQuantity;
+  return typeof stock === "number" ? stock : undefined;
+}
+
+function isSoldOut(product: Product) {
+  const stock = stockCount(product);
+  return product.status === "SOLD" || product.isAvailable === false || stock === 0;
 }
 
 export function ProductGrid({

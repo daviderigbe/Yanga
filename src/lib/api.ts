@@ -120,6 +120,8 @@ export interface Product {
   basePrice: string | number;
   discountPercent?: number;
   status: string;
+  quantity?: number;
+  isAvailable?: boolean;
   condition: string;
   size?: string;
   gender?: string;

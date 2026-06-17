@@ -29,7 +29,7 @@ function ProductPage() {
         setProduct(r.data);
         setLiked(!!r.data.isLiked);
         setActiveImg(0);
-        setQuantity(1);
+        setQuantity(isProductSoldOut(r.data) ? 0 : 1);
       })
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));
@@ -43,6 +43,10 @@ function ProductPage() {
   const addToCart = async () => {
     if (!user) {
       navigate({ to: "/login" });
+      return;
+    }
+    if (isProductSoldOut(product)) {
+      toast.error("This product is out of stock");
       return;
     }
     try {
@@ -97,6 +101,10 @@ function ProductPage() {
     return <div className="mx-auto max-w-6xl px-4 py-16 text-center">Product not found.</div>;
 
   const price = discountedPrice(product.basePrice, product.discountPercent);
+  const stock = stockCount(product);
+  const soldOut = isProductSoldOut(product);
+  const maxQuantity = stock ?? 10;
+  const lowStock = !soldOut && stock !== undefined && stock <= 2;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -168,19 +176,31 @@ function ProductPage() {
 
           <p className="text-sm text-foreground/80">{product.description}</p>
 
+          {soldOut ? (
+            <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+              This product is sold out.
+            </div>
+          ) : lowStock ? (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
+              Only {stock} left in stock.
+            </div>
+          ) : null}
+
           <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <div className="inline-flex h-12 items-center justify-between rounded-full border border-input bg-background">
               <button
-                onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-                className="grid h-12 w-12 place-items-center rounded-full hover:bg-secondary"
+                onClick={() => setQuantity((value) => Math.max(soldOut ? 0 : 1, value - 1))}
+                disabled={soldOut || quantity <= 1}
+                className="grid h-12 w-12 place-items-center rounded-full hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Decrease quantity"
               >
                 <Minus className="h-4 w-4" />
               </button>
               <span className="w-10 text-center font-semibold">{quantity}</span>
               <button
-                onClick={() => setQuantity((value) => Math.min(10, value + 1))}
-                className="grid h-12 w-12 place-items-center rounded-full hover:bg-secondary"
+                onClick={() => setQuantity((value) => Math.min(maxQuantity, value + 1))}
+                disabled={soldOut || quantity >= maxQuantity}
+                className="grid h-12 w-12 place-items-center rounded-full hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Increase quantity"
               >
                 <Plus className="h-4 w-4" />
@@ -188,9 +208,10 @@ function ProductPage() {
             </div>
             <Button
               onClick={addToCart}
+              disabled={soldOut}
               className="h-12 flex-1 rounded-full text-base font-bold shadow-pop"
             >
-              <ShoppingBag className="mr-2 h-5 w-5" /> Add to cart
+              <ShoppingBag className="mr-2 h-5 w-5" /> {soldOut ? "Sold out" : "Add to cart"}
             </Button>
             <Button
               onClick={toggleLike}
@@ -238,4 +259,14 @@ function ProductPage() {
       </section>
     </div>
   );
+}
+
+function stockCount(product: Product | null) {
+  const stock = product?.quantity ?? (product as any)?.stock ?? (product as any)?.availableQuantity;
+  return typeof stock === "number" ? stock : undefined;
+}
+
+function isProductSoldOut(product: Product | null) {
+  const stock = stockCount(product);
+  return product?.status === "SOLD" || product?.isAvailable === false || stock === 0;
 }

@@ -18,9 +18,14 @@ import {
   Wallet,
 } from "lucide-react";
 
-export const Route = createFileRoute("/account")({ component: AccountPage });
-
 type Tab = "overview" | "addresses" | "orders" | "seller";
+
+export const Route = createFileRoute("/account")({
+  validateSearch: (search: Record<string, unknown>): { tab?: Tab } => ({
+    tab: isTab(search.tab) ? search.tab : undefined,
+  }),
+  component: AccountPage,
+});
 
 interface Address {
   id: string;
@@ -64,10 +69,30 @@ const emptyAddress = {
   isDefault: false,
 };
 
+function isTab(value: unknown): value is Tab {
+  return value === "overview" || value === "addresses" || value === "orders" || value === "seller";
+}
+
+function extractOrders(response: unknown): OrderLike[] {
+  const data = (response as any)?.data ?? response;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.orders)) return data.orders;
+  if (Array.isArray(data?.purchases)) return data.purchases;
+  if (Array.isArray(data?.sales)) return data.sales;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.data?.items)) return data.data.items;
+  if (Array.isArray(data?.data?.orders)) return data.data.orders;
+  if (Array.isArray(data?.data?.purchases)) return data.data.purchases;
+  if (Array.isArray(data?.data?.sales)) return data.data.sales;
+  return [];
+}
+
 function AccountPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("overview");
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<Tab>(search.tab ?? "overview");
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [purchases, setPurchases] = useState<OrderLike[]>([]);
   const [sales, setSales] = useState<OrderLike[]>([]);
@@ -80,15 +105,14 @@ function AccountPage() {
     try {
       const [addressRes, purchaseRes, salesRes, walletRes] = await Promise.allSettled([
         addressApi.list(),
-        historyApi.purchases({ limit: 10 }),
-        historyApi.sales({ limit: 10 }),
+        historyApi.purchases({ limit: 50 }),
+        historyApi.sales({ limit: 50 }),
         paymentApi.walletBalance(user.id),
       ]);
       if (addressRes.status === "fulfilled")
         setAddresses(unwrapItems<Address>(addressRes.value as any));
-      if (purchaseRes.status === "fulfilled")
-        setPurchases(unwrapItems<OrderLike>(purchaseRes.value as any));
-      if (salesRes.status === "fulfilled") setSales(unwrapItems<OrderLike>(salesRes.value as any));
+      if (purchaseRes.status === "fulfilled") setPurchases(extractOrders(purchaseRes.value));
+      if (salesRes.status === "fulfilled") setSales(extractOrders(salesRes.value));
       if (walletRes.status === "fulfilled")
         setWallet((walletRes.value as any)?.data ?? walletRes.value);
     } finally {
@@ -104,6 +128,10 @@ function AccountPage() {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  useEffect(() => {
+    if (search.tab) setTab(search.tab);
+  }, [search.tab]);
 
   if (loading || !user) {
     return (

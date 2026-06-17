@@ -20,6 +20,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfileIdRouteImport } from './routes/profile.$id'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
 import { Route as CheckoutVerifyRouteImport } from './routes/checkout.verify'
+import { Route as ProductIdEditRouteImport } from './routes/product.$id_.edit'
 
 const SellRoute = SellRouteImport.update({
   id: '/sell',
@@ -76,6 +77,11 @@ const CheckoutVerifyRoute = CheckoutVerifyRouteImport.update({
   path: '/checkout/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductIdEditRoute = ProductIdEditRouteImport.update({
+  id: '/product/$id_/edit',
+  path: '/product/$id/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/checkout/verify': typeof CheckoutVerifyRoute
   '/product/$id': typeof ProductIdRoute
   '/profile/$id': typeof ProfileIdRoute
+  '/product/$id/edit': typeof ProductIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/checkout/verify': typeof CheckoutVerifyRoute
   '/product/$id': typeof ProductIdRoute
   '/profile/$id': typeof ProfileIdRoute
+  '/product/$id/edit': typeof ProductIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/checkout/verify': typeof CheckoutVerifyRoute
   '/product/$id': typeof ProductIdRoute
   '/profile/$id': typeof ProfileIdRoute
+  '/product/$id_/edit': typeof ProductIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/checkout/verify'
     | '/product/$id'
     | '/profile/$id'
+    | '/product/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/checkout/verify'
     | '/product/$id'
     | '/profile/$id'
+    | '/product/$id/edit'
   id:
     | '__root__'
     | '/'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/checkout/verify'
     | '/product/$id'
     | '/profile/$id'
+    | '/product/$id_/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,6 +183,7 @@ export interface RootRouteChildren {
   CheckoutVerifyRoute: typeof CheckoutVerifyRoute
   ProductIdRoute: typeof ProductIdRoute
   ProfileIdRoute: typeof ProfileIdRoute
+  ProductIdEditRoute: typeof ProductIdEditRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -252,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/product/$id_/edit': {
+      id: '/product/$id_/edit'
+      path: '/product/$id/edit'
+      fullPath: '/product/$id/edit'
+      preLoaderRoute: typeof ProductIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -267,6 +287,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutVerifyRoute: CheckoutVerifyRoute,
   ProductIdRoute: ProductIdRoute,
   ProfileIdRoute: ProfileIdRoute,
+  ProductIdEditRoute: ProductIdEditRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

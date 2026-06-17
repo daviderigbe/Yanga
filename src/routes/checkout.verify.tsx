@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, PackageSearch, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { FinancialSummary } from "@/components/FinancialSummary";
+import { notifyCartChanged } from "@/lib/cart-events";
 
 type VerifySearch = {
   orderId?: string;
@@ -49,6 +50,7 @@ function CheckoutVerifyPage() {
       setResult(response);
       setStatus("verified");
       localStorage.removeItem("afrab_checkout_pending");
+      notifyCartChanged();
       toast.success("Payment verified");
       await loadShipment(orderId);
     } catch (error: any) {
@@ -140,6 +142,7 @@ function CheckoutVerifyPage() {
           )}
           <Link
             to="/account"
+            search={{ tab: "orders" } as any}
             className="inline-flex h-10 items-center rounded-md border border-input px-4 text-sm font-medium"
           >
             View orders

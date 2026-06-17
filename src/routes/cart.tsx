@@ -19,6 +19,9 @@ interface CartItem {
     title: string;
     basePrice: string | number;
     discountPercent?: number;
+    quantity?: number;
+    status?: string;
+    isAvailable?: boolean;
     images: { url: string }[];
     size?: string;
     sellerId?: string;
@@ -95,6 +98,12 @@ function CartPage() {
 
   const updateQuantity = async (id: string, quantity: number) => {
     if (quantity < 1) return remove(id);
+    const item = items.find((cartItem) => cartItem.id === id);
+    const stock = stockCount(item);
+    if (stock !== undefined && quantity > stock) {
+      toast.error(`Only ${stock} left in stock`);
+      return;
+    }
     try {
       await cartApi.updateItem(id, { quantity });
       setItems((x) => x.map((item) => (item.id === id ? { ...item, quantity } : item)));
@@ -133,6 +142,19 @@ function CartPage() {
     }
     if (!selectedItems.length) {
       toast.error("Select a seller group to checkout");
+      return;
+    }
+    const soldOutItem = selectedItems.find(isSoldOut);
+    if (soldOutItem) {
+      toast.error(`${soldOutItem.product.title} is out of stock`);
+      return;
+    }
+    const overStockItem = selectedItems.find((item) => {
+      const stock = stockCount(item);
+      return stock !== undefined && item.quantity > stock;
+    });
+    if (overStockItem) {
+      toast.error(`Only ${stockCount(overStockItem)} left for ${overStockItem.product.title}`);
       return;
     }
     setCheckingOut(true);
@@ -174,6 +196,11 @@ function CartPage() {
       if (!paymentUrl) throw new Error("Payment URL was not returned by checkout");
       setCheckoutResult(response);
       setPaymentUrl(paymentUrl);
+      setItems((current) => {
+        const checkedOutIds = new Set(selectedItems.map((item) => item.id));
+        return current.filter((item) => !checkedOutIds.has(item.id));
+      });
+      notifyCartChanged();
       toast.success("Checkout prepared");
     } catch (e: any) {
       const message = e.message ?? "Could not start checkout";
@@ -195,6 +222,28 @@ function CartPage() {
 
       {loading ? (
         <p className="text-muted-foreground">Loading…</p>
+      ) : !items.length && paymentUrl ? (
+        <div className="rounded-3xl border border-primary/20 bg-primary/5 p-8 text-center shadow-soft">
+          <ShoppingBag className="mx-auto mb-4 h-12 w-12 text-primary" />
+          <p className="font-display text-xl font-bold">Checkout is prepared</p>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+            Your cart has been cleared for this order. Continue to Paystack to complete payment.
+          </p>
+          {checkoutResult && (
+            <div className="mx-auto mt-5 max-w-sm rounded-2xl border border-primary/20 bg-background p-3 text-left">
+              <FinancialSummary value={checkoutResult} title="Checkout total" compact />
+            </div>
+          )}
+          <Button
+            className="mt-6 rounded-full"
+            size="lg"
+            onClick={() => {
+              window.location.href = paymentUrl;
+            }}
+          >
+            Continue to Paystack
+          </Button>
+        </div>
       ) : !items.length ? (
         <div className="rounded-3xl border border-dashed border-border p-12 text-center">
           <ShoppingBag className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
@@ -212,6 +261,9 @@ function CartPage() {
           <div className="space-y-3">
             {items.map((i) => {
               const price = discountedPrice(i.product.basePrice, i.product.discountPercent);
+              const stock = stockCount(i);
+              const soldOut = isSoldOut(i);
+              const lowStock = !soldOut && stock !== undefined && stock <= 2;
               return (
                 <div key={i.id} className="flex gap-4 rounded-2xl border border-border bg-card p-3">
                   <Link
@@ -238,6 +290,13 @@ function CartPage() {
                     <p className="text-xs text-muted-foreground">
                       {i.product.size && `Size ${i.product.size}`}
                     </p>
+                    {soldOut ? (
+                      <p className="mt-1 text-xs font-semibold text-destructive">Sold out</p>
+                    ) : lowStock ? (
+                      <p className="mt-1 text-xs font-semibold text-destructive">
+                        Only {stock} left in stock
+                      </p>
+                    ) : null}
                     <div className="mt-3 inline-flex items-center rounded-full border border-input bg-background">
                       <button
                         onClick={() => updateQuantity(i.id, i.quantity - 1)}
@@ -249,7 +308,8 @@ function CartPage() {
                       <span className="w-8 text-center text-sm font-semibold">{i.quantity}</span>
                       <button
                         onClick={() => updateQuantity(i.id, i.quantity + 1)}
-                        className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary"
+                        disabled={soldOut || (stock !== undefined && i.quantity >= stock)}
+                        className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
                         aria-label="Increase quantity"
                       >
                         <Plus className="h-3.5 w-3.5" />
@@ -356,6 +416,19 @@ function addressLabel(address: Address) {
 
 function sellerIdFor(item?: CartItem) {
   return item?.product.seller?.id ?? item?.product.sellerId ?? "unknown-seller";
+}
+
+function stockCount(item?: CartItem) {
+  const stock =
+    item?.product.quantity ??
+    (item?.product as any)?.stock ??
+    (item?.product as any)?.availableQuantity;
+  return typeof stock === "number" ? stock : undefined;
+}
+
+function isSoldOut(item: CartItem) {
+  const stock = stockCount(item);
+  return item.product.status === "SOLD" || item.product.isAvailable === false || stock === 0;
 }
 
 function groupBySeller(items: CartItem[]) {
