@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { dispatchApi, paymentApi } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, PackageSearch, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, PackageSearch, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { FinancialSummary } from "@/components/FinancialSummary";
 
@@ -31,6 +31,7 @@ function CheckoutVerifyPage() {
   const [status, setStatus] = useState<"idle" | "verifying" | "verified" | "error">("idle");
   const [result, setResult] = useState<unknown>();
   const [shipment, setShipment] = useState<unknown>();
+  const hasPaymentDetails = Boolean(orderId && reference);
 
   useEffect(() => {
     if (orderId && reference) void verify();
@@ -80,53 +81,84 @@ function CheckoutVerifyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
       <div className="rounded-3xl border border-border bg-card p-6 shadow-card">
-        <div className="flex items-start gap-4">
-          <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-            {status === "verified" ? (
-              <CheckCircle2 className="h-6 w-6" />
+        <div className="flex flex-col items-center text-center">
+          <div
+            className={`grid h-16 w-16 place-items-center rounded-full ${
+              status === "error"
+                ? "bg-destructive/10 text-destructive"
+                : "bg-primary/10 text-primary"
+            }`}
+          >
+            {status === "error" ? (
+              <AlertCircle className="h-8 w-8" />
+            ) : status === "verified" ? (
+              <CheckCircle2 className="h-8 w-8" />
             ) : (
-              <PackageSearch className="h-6 w-6" />
+              <PackageSearch className="h-8 w-8" />
             )}
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-              Paystack checkout
-            </p>
-            <h1 className="font-display text-3xl font-black">Verify payment</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              After payment, Afra B confirms the Paystack reference, moves the order to processing,
-              and creates or updates dispatch tracking.
-            </p>
-          </div>
+          <p className="mt-5 text-xs font-semibold uppercase tracking-widest text-primary">
+            Checkout
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-black">
+            {status === "verified"
+              ? "Payment confirmed"
+              : status === "error"
+                ? "Payment could not be confirmed"
+                : status === "verifying"
+                  ? "Confirming your payment"
+                  : "Complete your payment confirmation"}
+          </h1>
+          <p className="mt-2 max-w-lg text-sm text-muted-foreground">
+            {status === "verified"
+              ? "Your order is now processing. We will update delivery tracking as soon as pickup is ready."
+              : status === "error"
+                ? "We could not confirm this payment yet. Please check the details below or try again."
+                : status === "verifying"
+                  ? "This usually takes a few seconds."
+                  : "Enter the order details from your checkout if they were not filled automatically."}
+          </p>
         </div>
 
-        <div className="mt-6 grid gap-3">
-          <Field label="Order ID" value={orderId} onChange={setOrderId} />
-          <Field label="Paystack reference" value={reference} onChange={setReference} />
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={verify} disabled={status === "verifying"}>
-              {status === "verifying" ? "Verifying…" : "Verify payment"}
-            </Button>
-            <Button variant="outline" onClick={() => loadShipment()} disabled={!orderId}>
-              Get shipment
-            </Button>
-            <Button variant="outline" onClick={syncShipment} disabled={!orderId}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Sync shipment
-            </Button>
-            <Link
-              to="/account"
-              className="inline-flex h-10 items-center rounded-md border border-input px-4 text-sm font-medium"
-            >
-              Account workbench
-            </Link>
+        {!hasPaymentDetails && (
+          <div className="mt-6 grid gap-3">
+            <Field label="Order ID" value={orderId} onChange={setOrderId} />
+            <Field label="Paystack reference" value={reference} onChange={setReference} />
           </div>
+        )}
+
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {(!hasPaymentDetails || status === "error") && (
+            <Button onClick={verify} disabled={status === "verifying"}>
+              {status === "verifying" ? "Confirming…" : "Confirm payment"}
+            </Button>
+          )}
+          {status === "verified" && (
+            <Button variant="outline" onClick={syncShipment} disabled={!orderId}>
+              <RefreshCw className="mr-2 h-4 w-4" /> Refresh delivery
+            </Button>
+          )}
+          <Link
+            to="/account"
+            className="inline-flex h-10 items-center rounded-md border border-input px-4 text-sm font-medium"
+          >
+            View orders
+          </Link>
+          <Link
+            to="/search"
+            className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+          >
+            Continue shopping
+          </Link>
         </div>
       </div>
 
       {(result || shipment) && (
         <div className="mt-6 grid gap-4">
-          {result && <JsonPanel title="Verification response" value={result} />}
-          {shipment && <JsonPanel title="Shipment response" value={shipment} />}
+          {result && (
+            <DetailsPanel title="Payment details" value={result} fallbackReference={reference} />
+          )}
+          {shipment && <DetailsPanel title="Delivery details" value={shipment} />}
         </div>
       )}
     </div>
@@ -154,15 +186,62 @@ function Field({
   );
 }
 
-function JsonPanel({ title, value }: { title: string; value: unknown }) {
+function DetailsPanel({
+  title,
+  value,
+  fallbackReference,
+}: {
+  title: string;
+  value: any;
+  fallbackReference?: string;
+}) {
+  const data = value?.data ?? value;
+  const shipment = data?.shipment ?? data;
+  const trackingUrl = shipment?.trackingUrl ?? data?.trackingUrl;
   return (
-    <section className="rounded-2xl border border-border bg-foreground p-4 text-background">
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
       <h2 className="mb-2 font-display text-lg font-black">{title}</h2>
-      <FinancialSummary value={value} title="Financial summary" />
-      <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs">
-        {JSON.stringify(value, null, 2)}
-      </pre>
+      <FinancialSummary value={value} title="Payment summary" />
+      <dl className="mt-3 grid gap-2 text-sm">
+        <Detail
+          label="Status"
+          value={data?.order?.status ?? shipment?.status ?? data?.status ?? "Pending"}
+        />
+        <Detail
+          label="Reference"
+          value={
+            data?.reference ??
+            data?.paymentReference ??
+            data?.paystack?.reference ??
+            fallbackReference ??
+            "Unavailable"
+          }
+        />
+        <Detail
+          label="Tracking ID"
+          value={shipment?.trackingId ?? shipment?.trackingNumber ?? "Unavailable"}
+        />
+      </dl>
+      {trackingUrl && (
+        <a
+          href={trackingUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+        >
+          Track delivery
+        </a>
+      )}
     </section>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-semibold">{value}</dd>
+    </div>
   );
 }
 

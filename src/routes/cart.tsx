@@ -320,15 +320,9 @@ function CartPage() {
               </div>
             ) : (
               <div className="rounded-2xl bg-secondary/60 p-3 text-xs text-muted-foreground">
-                Delivery, service fee, and payment total are calculated by the backend when checkout
-                starts.
+                Delivery, service fee, and payment total are calculated on checkout.
               </div>
             )}
-            <div className="space-y-2 rounded-2xl bg-secondary/60 p-3 text-sm">
-              <Row k="Selected items" v={`${selectedItems.length}`} />
-              <Row k="Delivery and service fees" v="Backend calculated" />
-              <Row k="Paystack charge" v="Shown after checkout is prepared" />
-            </div>
             <Button
               className="w-full rounded-full"
               size="lg"
@@ -374,13 +368,4 @@ function groupBySeller(items: CartItem[]) {
     groups.set(sellerId, group);
   }
   return [...groups.values()];
-}
-
-function Row({ k, v }: { k: React.ReactNode; v: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{k}</span>
-      <span>{v}</span>
-    </div>
-  );
 }

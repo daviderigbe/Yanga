@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Sparkles, Recycle, Truck } from "lucide-react";
 import { api, type Product } from "@/lib/api";
 import { ProductGrid } from "@/components/ProductCard";
+import { SearchSuggestBox } from "@/components/SearchSuggestBox";
 
 export const Route = createFileRoute("/")({ component: Index });
 
@@ -35,7 +36,7 @@ function Index() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border">
+      <section className="relative border-b border-border">
         <div className="absolute inset-0 bg-grain opacity-50" />
         <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 md:grid-cols-2 md:py-24">
           <div className="space-y-6">
@@ -51,6 +52,9 @@ function Index() {
               Hunt vintage finds, drop your fits, and earn from your wardrobe. Afra B is the fashion
               marketplace built for us.
             </p>
+            <div className="max-w-xl">
+              <SearchSuggestBox />
+            </div>
             <div className="flex flex-wrap gap-3">
               <Link
                 to="/search"

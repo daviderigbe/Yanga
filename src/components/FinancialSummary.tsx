@@ -19,17 +19,21 @@ const ACCOUNTING_FIELDS = [
 ] as const;
 
 type MoneyObject = Record<string, unknown>;
+type SummaryMode = "buyer" | "seller" | "accounting";
 
 export function FinancialSummary({
   value,
-  title = "Backend totals",
+  title = "Order totals",
   compact = false,
+  mode = "buyer",
 }: {
   value: unknown;
   title?: string;
   compact?: boolean;
+  mode?: SummaryMode;
 }) {
-  const summaries = findMoneyObjects(value);
+  const fields = fieldsForMode(mode);
+  const summaries = findMoneyObjects(value, fields);
   if (!summaries.length) return null;
 
   return (
@@ -40,9 +44,7 @@ export function FinancialSummary({
           key={index}
           className="rounded-2xl border border-border bg-background p-4 text-foreground"
         >
-          <MoneyRows fields={BUYER_FIELDS} source={summary} emphasize="totalAmount" />
-          <MoneyRows fields={SELLER_FIELDS} source={summary} />
-          <MoneyRows fields={ACCOUNTING_FIELDS} source={summary} />
+          <MoneyRows fields={fields} source={summary} emphasize="totalAmount" />
         </div>
       ))}
     </div>
@@ -78,14 +80,17 @@ function MoneyRows({
   );
 }
 
-function findMoneyObjects(value: unknown): MoneyObject[] {
+function findMoneyObjects(
+  value: unknown,
+  fields: readonly (readonly [string, string])[],
+): MoneyObject[] {
   const result: MoneyObject[] = [];
   const seen = new Set<unknown>();
 
   const visit = (node: unknown) => {
     if (!node || typeof node !== "object" || seen.has(node)) return;
     seen.add(node);
-    if (hasMoneyFields(node as MoneyObject)) result.push(node as MoneyObject);
+    if (hasMoneyFields(node as MoneyObject, fields)) result.push(node as MoneyObject);
     if (Array.isArray(node)) node.forEach(visit);
     else Object.values(node as Record<string, unknown>).forEach(visit);
   };
@@ -94,10 +99,15 @@ function findMoneyObjects(value: unknown): MoneyObject[] {
   return result;
 }
 
-function hasMoneyFields(value: MoneyObject) {
-  return [...BUYER_FIELDS, ...SELLER_FIELDS, ...ACCOUNTING_FIELDS].some(([key]) =>
-    isMoney(value[key]),
-  );
+function hasMoneyFields(value: MoneyObject, fields: readonly (readonly [string, string])[]) {
+  return fields.some(([key]) => isMoney(value[key]));
+}
+
+function fieldsForMode(mode: SummaryMode) {
+  if (mode === "seller") return [...BUYER_FIELDS, ...SELLER_FIELDS] as const;
+  if (mode === "accounting")
+    return [...BUYER_FIELDS, ...SELLER_FIELDS, ...ACCOUNTING_FIELDS] as const;
+  return BUYER_FIELDS;
 }
 
 function isMoney(value: unknown) {

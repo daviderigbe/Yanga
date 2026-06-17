@@ -1,19 +1,20 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Heart,
-  Search,
   ShoppingBag,
   Plus,
   User as UserIcon,
   LogOut,
   Menu,
   LayoutDashboard,
+  MessageCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { unwrapItems } from "@/lib/api";
 import { cartApi } from "@/lib/endpoints";
 import { CART_CHANGED_EVENT } from "@/lib/cart-events";
+import { SearchSuggestBox } from "@/components/SearchSuggestBox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +27,6 @@ import { Button } from "@/components/ui/button";
 export function Header() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [q, setQ] = useState("");
   const [openMenu, setOpenMenu] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -52,11 +52,6 @@ export function Header() {
     return () => window.removeEventListener(CART_CHANGED_EVENT, loadCartCount);
   }, [user]);
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    navigate({ to: "/search", search: { q } as any });
-  };
-
   const NavLink = ({ to, children, params }: any) => (
     <Link
       to={to}
@@ -80,15 +75,9 @@ export function Header() {
           </span>
         </Link>
 
-        <form onSubmit={submit} className="relative ml-2 hidden flex-1 md:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search styles, brands, sellers…"
-            className="h-11 w-full rounded-full border border-input bg-secondary/60 pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:bg-background"
-          />
-        </form>
+        <div className="relative ml-2 hidden flex-1 md:block">
+          <SearchSuggestBox />
+        </div>
 
         <nav className="hidden items-center gap-5 lg:flex">
           <NavLink to="/search">Shop</NavLink>
@@ -147,7 +136,10 @@ export function Header() {
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate({ to: "/account" })}>
-                  <LayoutDashboard className="mr-2 h-4 w-4" /> Account workbench
+                  <LayoutDashboard className="mr-2 h-4 w-4" /> Account
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate({ to: "/messages" })}>
+                  <MessageCircle className="mr-2 h-4 w-4" /> Messages
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate({ to: "/profile/$id", params: { id: user.id } })}
@@ -185,15 +177,7 @@ export function Header() {
 
       {/* Mobile search + menu */}
       <div className="border-t border-border/60 bg-background/85 px-4 py-2 md:hidden">
-        <form onSubmit={submit} className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search…"
-            className="h-10 w-full rounded-full border border-input bg-secondary/60 pl-10 pr-4 text-sm outline-none focus:border-primary focus:bg-background"
-          />
-        </form>
+        <SearchSuggestBox compact onSearch={() => setOpenMenu(false)} />
       </div>
 
       {openMenu && (
@@ -230,13 +214,22 @@ export function Header() {
               + Sell
             </Link>
             {user && (
-              <Link
-                to="/account"
-                onClick={() => setOpenMenu(false)}
-                className="rounded-full bg-secondary px-3 py-1.5 text-sm"
-              >
-                Account
-              </Link>
+              <>
+                <Link
+                  to="/messages"
+                  onClick={() => setOpenMenu(false)}
+                  className="rounded-full bg-secondary px-3 py-1.5 text-sm"
+                >
+                  Messages
+                </Link>
+                <Link
+                  to="/account"
+                  onClick={() => setOpenMenu(false)}
+                  className="rounded-full bg-secondary px-3 py-1.5 text-sm"
+                >
+                  Account
+                </Link>
+              </>
             )}
           </div>
         </div>

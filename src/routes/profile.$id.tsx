@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, type Product } from "@/lib/api";
 import { userApi } from "@/lib/endpoints";
@@ -22,6 +22,7 @@ interface ProfileUser {
 function ProfilePage() {
   const { id } = Route.useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [u, setU] = useState<ProfileUser | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [following, setFollowing] = useState(false);
@@ -89,7 +90,9 @@ function ProfilePage() {
             <Button
               variant="outline"
               className="rounded-full"
-              onClick={() => toast("Messaging is available from Account workbench")}
+              onClick={() =>
+                navigate({ to: "/messages", search: { userId: id, name: u?.name } as any })
+              }
             >
               Message
             </Button>

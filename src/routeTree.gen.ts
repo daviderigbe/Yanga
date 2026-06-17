@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SellRouteImport } from './routes/sell'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LikesRouteImport } from './routes/likes'
 import { Route as CartRouteImport } from './routes/cart'
@@ -28,6 +29,11 @@ const SellRoute = SellRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/cart': typeof CartRoute
   '/likes': typeof LikesRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/search': typeof SearchRoute
   '/sell': typeof SellRoute
   '/checkout/verify': typeof CheckoutVerifyRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/cart': typeof CartRoute
   '/likes': typeof LikesRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/search': typeof SearchRoute
   '/sell': typeof SellRoute
   '/checkout/verify': typeof CheckoutVerifyRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/cart': typeof CartRoute
   '/likes': typeof LikesRoute
   '/login': typeof LoginRoute
+  '/messages': typeof MessagesRoute
   '/search': typeof SearchRoute
   '/sell': typeof SellRoute
   '/checkout/verify': typeof CheckoutVerifyRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/likes'
     | '/login'
+    | '/messages'
     | '/search'
     | '/sell'
     | '/checkout/verify'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/likes'
     | '/login'
+    | '/messages'
     | '/search'
     | '/sell'
     | '/checkout/verify'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/likes'
     | '/login'
+    | '/messages'
     | '/search'
     | '/sell'
     | '/checkout/verify'
@@ -153,6 +165,7 @@ export interface RootRouteChildren {
   CartRoute: typeof CartRoute
   LikesRoute: typeof LikesRoute
   LoginRoute: typeof LoginRoute
+  MessagesRoute: typeof MessagesRoute
   SearchRoute: typeof SearchRoute
   SellRoute: typeof SellRoute
   CheckoutVerifyRoute: typeof CheckoutVerifyRoute
@@ -174,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -241,6 +261,7 @@ const rootRouteChildren: RootRouteChildren = {
   CartRoute: CartRoute,
   LikesRoute: LikesRoute,
   LoginRoute: LoginRoute,
+  MessagesRoute: MessagesRoute,
   SearchRoute: SearchRoute,
   SellRoute: SellRoute,
   CheckoutVerifyRoute: CheckoutVerifyRoute,

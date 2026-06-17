@@ -1,40 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import {
-  addressApi,
-  authApi,
-  brandApi,
-  catalogApi,
-  dispatchApi,
-  historyApi,
-  messageApi,
-  paymentApi,
-  productApi,
-  realtimeApi,
-  uploadApi,
-  userApi,
-} from "@/lib/endpoints";
-import { API_BASE, unwrapItems } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { addressApi, dispatchApi, historyApi, paymentApi, userApi } from "@/lib/endpoints";
+import { formatNGN, unwrapItems } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { FinancialSummary } from "@/components/FinancialSummary";
+import { toast } from "sonner";
 import {
-  BadgeDollarSign,
   Banknote,
-  Boxes,
-  Building2,
-  CreditCard,
   Home,
-  ImageUp,
-  Lock,
-  Mail,
-  MessageCircle,
+  MapPin,
   Package,
-  Search,
+  Receipt,
   Settings,
-  ShieldCheck,
-  Tags,
   Truck,
   UserRound,
   Wallet,
@@ -42,44 +20,90 @@ import {
 
 export const Route = createFileRoute("/account")({ component: AccountPage });
 
-type Section =
-  | "overview"
-  | "profile"
-  | "addresses"
-  | "seller"
-  | "messages"
-  | "payments"
-  | "catalog"
-  | "uploads";
+type Tab = "overview" | "addresses" | "orders" | "seller";
 
-type RunState = {
-  loading?: string;
-  result?: unknown;
+interface Address {
+  id: string;
+  type?: string;
+  street?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  contactName?: string;
+  contactPhone?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  isDefault?: boolean;
+}
+
+interface OrderLike {
+  id?: string;
+  orderId?: string;
+  status?: string;
+  shipmentStatus?: string;
+  totalAmount?: number | string;
+  sellerPayoutAmount?: number | string;
+  commissionAmount?: number | string;
+  createdAt?: string;
+}
+
+const emptyAddress = {
+  type: "SHIPPING",
+  address: "",
+  city: "",
+  state: "Lagos",
+  country: "Nigeria",
+  zipCode: "",
+  contactName: "",
+  contactPhone: "",
+  landmark: "",
+  deliveryInstructions: "",
+  latitude: "",
+  longitude: "",
+  isDefault: false,
 };
 
 function AccountPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [section, setSection] = useState<Section>("overview");
-  const [state, setState] = useState<RunState>({});
+  const [tab, setTab] = useState<Tab>("overview");
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [purchases, setPurchases] = useState<OrderLike[]>([]);
+  const [sales, setSales] = useState<OrderLike[]>([]);
+  const [wallet, setWallet] = useState<any>();
+  const [busy, setBusy] = useState(false);
+
+  const refresh = async () => {
+    if (!user) return;
+    setBusy(true);
+    try {
+      const [addressRes, purchaseRes, salesRes, walletRes] = await Promise.allSettled([
+        addressApi.list(),
+        historyApi.purchases({ limit: 10 }),
+        historyApi.sales({ limit: 10 }),
+        paymentApi.walletBalance(user.id),
+      ]);
+      if (addressRes.status === "fulfilled")
+        setAddresses(unwrapItems<Address>(addressRes.value as any));
+      if (purchaseRes.status === "fulfilled")
+        setPurchases(unwrapItems<OrderLike>(purchaseRes.value as any));
+      if (salesRes.status === "fulfilled") setSales(unwrapItems<OrderLike>(salesRes.value as any));
+      if (walletRes.status === "fulfilled")
+        setWallet((walletRes.value as any)?.data ?? walletRes.value);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
   }, [loading, user, navigate]);
 
-  const run = async (label: string, fn: () => Promise<unknown>) => {
-    setState({ loading: label });
-    try {
-      const result = await fn();
-      setState({ result });
-      toast.success(`${label} completed`);
-      return result;
-    } catch (error: any) {
-      setState({ result: error?.data ?? { message: error?.message ?? "Request failed" } });
-      toast.error(error?.message ?? "Request failed");
-      return undefined;
-    }
-  };
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   if (loading || !user) {
     return (
@@ -90,1053 +114,504 @@ function AccountPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 lg:grid-cols-[260px_1fr]">
-      <aside className="lg:sticky lg:top-24 lg:self-start">
-        <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-full bg-primary/10 font-display font-black text-primary">
-              {user.name?.[0]?.toUpperCase() ?? "A"}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate font-semibold">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-            </div>
-          </div>
-          <nav className="grid gap-1">
-            <SideButton
-              id="overview"
-              active={section}
-              onClick={setSection}
-              icon={Boxes}
-              label="Overview"
-            />
-            <SideButton
-              id="profile"
-              active={section}
-              onClick={setSection}
-              icon={Settings}
-              label="Profile"
-            />
-            <SideButton
-              id="addresses"
-              active={section}
-              onClick={setSection}
-              icon={Home}
-              label="Addresses"
-            />
-            <SideButton
-              id="seller"
-              active={section}
-              onClick={setSection}
-              icon={Package}
-              label="Seller"
-            />
-            <SideButton
-              id="messages"
-              active={section}
-              onClick={setSection}
-              icon={MessageCircle}
-              label="Messages"
-            />
-            <SideButton
-              id="payments"
-              active={section}
-              onClick={setSection}
-              icon={Wallet}
-              label="Payments"
-            />
-            <SideButton
-              id="catalog"
-              active={section}
-              onClick={setSection}
-              icon={Search}
-              label="Catalog"
-            />
-            <SideButton
-              id="uploads"
-              active={section}
-              onClick={setSection}
-              icon={ImageUp}
-              label="Uploads"
-            />
-          </nav>
-        </div>
-      </aside>
-
-      <main className="min-w-0 space-y-6">
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-            Production API coverage
-          </p>
-          <h1 className="font-display text-3xl font-black md:text-4xl">Account workbench</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Manage marketplace actions that require authentication. API target: {API_BASE}
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary">My Afra B</p>
+          <h1 className="font-display text-3xl font-black md:text-4xl">Account</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
         </div>
+        <Button variant="outline" className="rounded-full" onClick={refresh} disabled={busy}>
+          {busy ? "Refreshing…" : "Refresh"}
+        </Button>
+      </header>
 
-        {section === "overview" && <Overview userId={user.id} run={run} />}
-        {section === "profile" && <ProfileSecurity user={user} run={run} />}
-        {section === "addresses" && <Addresses run={run} />}
-        {section === "seller" && <SellerTools userId={user.id} run={run} />}
-        {section === "messages" && <Messages run={run} />}
-        {section === "payments" && <Payments userId={user.id} run={run} />}
-        {section === "catalog" && <Catalog run={run} />}
-        {section === "uploads" && <Uploads run={run} />}
+      <div className="mb-8 flex gap-2 overflow-x-auto pb-1">
+        <TabButton tab="overview" active={tab} setTab={setTab} icon={UserRound} label="Overview" />
+        <TabButton tab="addresses" active={tab} setTab={setTab} icon={Home} label="Addresses" />
+        <TabButton tab="orders" active={tab} setTab={setTab} icon={Receipt} label="Orders" />
+        <TabButton tab="seller" active={tab} setTab={setTab} icon={Package} label="Seller" />
+      </div>
 
-        <ResultPanel state={state} />
-      </main>
+      {tab === "overview" && (
+        <Overview
+          name={user.name}
+          wallet={wallet}
+          addressCount={addresses.length}
+          purchaseCount={purchases.length}
+          salesCount={sales.length}
+        />
+      )}
+      {tab === "addresses" && <Addresses addresses={addresses} onChanged={refresh} />}
+      {tab === "orders" && <Orders purchases={purchases} sales={sales} />}
+      {tab === "seller" && <Seller addresses={addresses} userId={user.id} onChanged={refresh} />}
     </div>
   );
 }
 
-function Overview({ userId, run }: { userId: string; run: Runner }) {
-  const actions = useMemo(
-    () => [
-      { label: "Refresh auth session", icon: ShieldCheck, fn: authApi.me },
-      { label: "Refresh auth WS token", icon: Lock, fn: authApi.refreshWsToken },
-      { label: "Get websocket token", icon: Lock, fn: realtimeApi.wsToken },
-      { label: "Get unread messages", icon: Mail, fn: messageApi.unreadCount },
-      { label: "Load addresses", icon: Home, fn: addressApi.list },
-      { label: "Load purchases", icon: Truck, fn: () => historyApi.purchases({ limit: 10 }) },
-      { label: "Load sales", icon: BadgeDollarSign, fn: () => historyApi.sales({ limit: 10 }) },
-      { label: "Load wallet balance", icon: Wallet, fn: () => paymentApi.walletBalance(userId) },
-      { label: "Load saved cards", icon: CreditCard, fn: paymentApi.cards },
-      { label: "Load my brands", icon: Building2, fn: () => brandApi.mine({ limit: 10 }) },
-      { label: "Load bank details", icon: Banknote, fn: userApi.bankDetails },
-    ],
-    [userId],
-  );
-  return <ActionGrid title="Quick checks" actions={actions} run={run} />;
-}
-
-function ProfileSecurity({ user, run }: { user: { id: string; email: string }; run: Runner }) {
-  const [profile, setProfile] = useState({ name: "", userName: "", bio: "", phoneNumber: "" });
-  const [bank, setBank] = useState({ accountNumber: "", bankCode: "", accountName: "" });
-  const [password, setPassword] = useState({ currentPassword: "", newPassword: "" });
-  const [emailCode, setEmailCode] = useState("");
-  const [reset, setReset] = useState({ code: "", newPassword: "" });
-  const [mobileOauth, setMobileOauth] = useState({
-    provider: "google",
-    idToken: "",
-    accessToken: "",
-  });
-
+function Overview({
+  name,
+  wallet,
+  addressCount,
+  purchaseCount,
+  salesCount,
+}: {
+  name: string;
+  wallet: any;
+  addressCount: number;
+  purchaseCount: number;
+  salesCount: number;
+}) {
   return (
-    <SectionShell title="Profile and security">
-      <FormCard title="Edit profile" icon={UserRound}>
-        <Field
-          label="Name"
-          value={profile.name}
-          onChange={(name) => setProfile({ ...profile, name })}
-        />
-        <Field
-          label="Username"
-          value={profile.userName}
-          onChange={(userName) => setProfile({ ...profile, userName })}
-        />
-        <Field
-          label="Bio"
-          value={profile.bio}
-          onChange={(bio) => setProfile({ ...profile, bio })}
-        />
-        <Field
-          label="Phone"
-          value={profile.phoneNumber}
-          onChange={(phoneNumber) => setProfile({ ...profile, phoneNumber })}
-        />
-        <Button
-          onClick={() => run("Edit profile", () => userApi.editProfile(user.id, compact(profile)))}
-        >
-          Save profile
-        </Button>
-      </FormCard>
-
-      <FormCard title="Bank details" icon={Banknote}>
-        <Field
-          label="Account number"
-          value={bank.accountNumber}
-          onChange={(accountNumber) => setBank({ ...bank, accountNumber })}
-        />
-        <Field
-          label="Bank code"
-          value={bank.bankCode}
-          onChange={(bankCode) => setBank({ ...bank, bankCode })}
-        />
-        <Field
-          label="Account name"
-          value={bank.accountName}
-          onChange={(accountName) => setBank({ ...bank, accountName })}
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => run("Save bank details", () => userApi.saveBankDetails(compact(bank)))}
-          >
-            Save bank
-          </Button>
-          <Button variant="outline" onClick={() => run("Get bank details", userApi.bankDetails)}>
-            Refresh
-          </Button>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <Metric icon={UserRound} label="Welcome" value={name} />
+      <Metric icon={Home} label="Saved addresses" value={addressCount} />
+      <Metric icon={Truck} label="Purchases" value={purchaseCount} />
+      <Metric icon={Banknote} label="Sales" value={salesCount} />
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-card md:col-span-2">
+        <div className="mb-2 flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-primary" />
+          <h2 className="font-display text-xl font-black">Wallet</h2>
         </div>
-      </FormCard>
-
-      <FormCard title="Password and verification" icon={Lock}>
-        <Field
-          label="Current password"
-          type="password"
-          value={password.currentPassword}
-          onChange={(currentPassword) => setPassword({ ...password, currentPassword })}
-        />
-        <Field
-          label="New password"
-          type="password"
-          value={password.newPassword}
-          onChange={(newPassword) => setPassword({ ...password, newPassword })}
-        />
-        <Button
-          onClick={() =>
-            run("Change password", () => userApi.changePassword(user.id, compact(password)))
-          }
-        >
-          Change password
-        </Button>
-        <div className="grid gap-2 border-t border-border pt-4">
-          <Field label="Email code" value={emailCode} onChange={setEmailCode} />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => run("Send verification code", () => authApi.sendEmailCode(user.email))}
-            >
-              Send code
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                run("Verify email", () =>
-                  authApi.verifyEmail({ email: user.email, code: emailCode }),
-                )
-              }
-            >
-              Verify email
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => run("Resend code", () => authApi.resendEmailCode(user.email))}
-            >
-              Resend
-            </Button>
-          </div>
-        </div>
-        <div className="grid gap-2 border-t border-border pt-4">
-          <Field
-            label="Reset code"
-            value={reset.code}
-            onChange={(code) => setReset({ ...reset, code })}
-          />
-          <Field
-            label="Reset password"
-            type="password"
-            value={reset.newPassword}
-            onChange={(newPassword) => setReset({ ...reset, newPassword })}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => run("Request reset", () => authApi.requestPasswordReset(user.email))}
-            >
-              Request reset
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                run("Verify reset code", () =>
-                  authApi.verifyResetCode({ email: user.email, code: reset.code }),
-                )
-              }
-            >
-              Verify reset
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                run("Reset password", () =>
-                  authApi.resetPassword({
-                    email: user.email,
-                    code: reset.code,
-                    newPassword: reset.newPassword,
-                  }),
-                )
-              }
-            >
-              Reset password
-            </Button>
-          </div>
-        </div>
-      </FormCard>
-
-      <ActionGrid
-        title="Account toggles"
-        actions={[
-          {
-            label: "Toggle bundle buying",
-            icon: Boxes,
-            fn: () => userApi.toggleBundleBuying(user.id),
-          },
-          {
-            label: "Toggle unavailability",
-            icon: Settings,
-            fn: () => userApi.toggleUnavailability(user.id),
-          },
-          { label: "Deactivate account", icon: Lock, fn: () => userApi.deactivate(user.id) },
-          { label: "Reactivate account", icon: ShieldCheck, fn: () => userApi.reactivate(user.id) },
-        ]}
-        run={run}
-      />
-      <FormCard title="Mobile OAuth token" icon={ShieldCheck}>
-        <Field
-          label="Provider"
-          value={mobileOauth.provider}
-          onChange={(provider) => setMobileOauth({ ...mobileOauth, provider })}
-        />
-        <Field
-          label="ID token"
-          value={mobileOauth.idToken}
-          onChange={(idToken) => setMobileOauth({ ...mobileOauth, idToken })}
-        />
-        <Field
-          label="Access token"
-          value={mobileOauth.accessToken}
-          onChange={(accessToken) => setMobileOauth({ ...mobileOauth, accessToken })}
-        />
-        <Button
-          disabled={!mobileOauth.idToken}
-          onClick={() =>
-            run("Mobile OAuth", () =>
-              authApi.mobileOauth(
-                mobileOauth.provider as "google" | "apple",
-                compact({
-                  idToken: mobileOauth.idToken,
-                  accessToken: mobileOauth.accessToken,
-                }) as any,
-              ),
-            )
-          }
-        >
-          Authenticate mobile token
-        </Button>
-      </FormCard>
-    </SectionShell>
-  );
-}
-
-function Addresses({ run }: { run: Runner }) {
-  const [addressId, setAddressId] = useState("");
-  const [form, setForm] = useState({
-    type: "SHIPPING",
-    address: "",
-    city: "",
-    state: "Lagos",
-    country: "Nigeria",
-    zipCode: "",
-    contactName: "",
-    contactPhone: "",
-    landmark: "",
-    deliveryInstructions: "",
-    latitude: "",
-    longitude: "",
-    isDefault: false,
-  });
-  return (
-    <SectionShell title="Addresses">
-      <ActionGrid
-        title="Address data"
-        actions={[
-          { label: "Get all addresses", icon: Home, fn: () => addressApi.list() },
-          {
-            label: "Get shipping addresses",
-            icon: Truck,
-            fn: () => addressApi.list({ type: "SHIPPING" }),
-          },
-          {
-            label: "Get pickup addresses",
-            icon: Package,
-            fn: () => addressApi.list({ type: "PICKUP" }),
-          },
-          { label: "Get Nigerian states", icon: Tags, fn: addressApi.states },
-        ]}
-        run={run}
-      />
-      <FormCard title="Create or update address" icon={Home}>
-        <p className="rounded-xl bg-secondary/60 p-3 text-sm text-muted-foreground">
-          Seller pickup addresses must use type PICKUP, state Lagos, and include contact phone,
-          latitude, and longitude. Buyer checkout uses a SHIPPING address.
+        <p className="text-sm text-muted-foreground">
+          Seller payouts appear here after delivery is completed.
         </p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() =>
-              setForm((current) => ({
-                ...current,
-                type: "PICKUP",
-                state: "Lagos",
-                country: "Nigeria",
-              }))
-            }
-          >
-            Use seller pickup preset
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() =>
-              setForm((current) => ({
-                ...current,
-                type: "SHIPPING",
-                country: "Nigeria",
-              }))
-            }
-          >
-            Use buyer shipping preset
-          </Button>
-        </div>
-        <Field label="Address ID for update/delete" value={addressId} onChange={setAddressId} />
-        {Object.entries(form).map(([key, value]) =>
-          typeof value === "boolean" ? (
-            <label key={key} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={value}
-                onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
-              />
-              Default address
-            </label>
-          ) : (
-            <Field
-              key={key}
-              label={labelize(key)}
-              value={String(value)}
-              onChange={(next) => setForm({ ...form, [key]: next })}
-            />
-          ),
+        <FinancialSummary value={wallet} title="Wallet totals" compact />
+      </div>
+    </div>
+  );
+}
+
+function Addresses({
+  addresses,
+  onChanged,
+}: {
+  addresses: Address[];
+  onChanged: () => Promise<void>;
+}) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+      <section className="space-y-3">
+        <SectionTitle
+          title="Saved addresses"
+          sub="Use shipping addresses for checkout and pickup addresses for selling."
+        />
+        {addresses.length ? (
+          addresses.map((address) => (
+            <AddressCard key={address.id} address={address} onChanged={onChanged} />
+          ))
+        ) : (
+          <EmptyState text="No saved addresses yet." />
         )}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => run("Add address", () => addressApi.create(prepareAddressPayload(form)))}
-          >
-            Add
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!addressId}
-            onClick={() =>
-              run("Update address", () => addressApi.update(addressId, prepareAddressPayload(form)))
-            }
-          >
-            Update
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!addressId}
-            onClick={() => run("Delete address", () => addressApi.delete(addressId))}
-          >
-            Delete
-          </Button>
-        </div>
-      </FormCard>
-    </SectionShell>
+      </section>
+      <AddressForm title="Add address" initial={emptyAddress} onSaved={onChanged} />
+    </div>
   );
 }
 
-function SellerTools({ userId, run }: { userId: string; run: Runner }) {
-  const [brandId, setBrandId] = useState("");
-  const [productId, setProductId] = useState("");
-  const [imageId, setImageId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [tagId, setTagId] = useState("");
-  const [brand, setBrand] = useState({
-    name: "",
-    description: "",
-    contactAddress: "",
-    businessPhoneNumber: "",
-    logoUrl: "",
-  });
-  const [product, setProduct] = useState({
-    title: "",
-    description: "",
-    basePrice: "",
-    quantity: "1",
-    status: "ACTIVE",
-  });
-  const [review, setReview] = useState({ rating: "5", comment: "" });
+function Seller({
+  addresses,
+  userId,
+  onChanged,
+}: {
+  addresses: Address[];
+  userId: string;
+  onChanged: () => Promise<void>;
+}) {
+  const pickup = addresses.find((address) => address.type === "PICKUP");
+  const [bank, setBank] = useState({ accountNumber: "", bankCode: "", accountName: "" });
+
+  const saveBank = async () => {
+    try {
+      await userApi.saveBankDetails(clean(bank));
+      toast.success("Bank details saved");
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not save bank details");
+    }
+  };
 
   return (
-    <SectionShell title="Seller tools">
-      <ActionGrid
-        title="Seller reads"
-        actions={[
-          { label: "My products", icon: Package, fn: () => userApi.products(userId) },
-          { label: "Sold products", icon: Truck, fn: () => userApi.soldProducts(userId) },
-          { label: "Product reviews", icon: MessageCircle, fn: () => userApi.reviews(userId) },
-          { label: "Verified brands", icon: Building2, fn: () => brandApi.verified({ limit: 20 }) },
-          { label: "My brands", icon: Building2, fn: () => brandApi.mine({ limit: 20 }) },
-        ]}
-        run={run}
+    <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+      <section className="space-y-4">
+        <SectionTitle
+          title="Seller setup"
+          sub="A Lagos pickup address is required before buyers can checkout your items."
+        />
+        {pickup ? (
+          <AddressCard address={pickup} onChanged={onChanged} />
+        ) : (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+            Add a pickup address with contact phone, latitude, and longitude. Without it, checkout
+            can fail for buyers.
+          </div>
+        )}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+          <div className="mb-4 flex items-center gap-2">
+            <Banknote className="h-5 w-5 text-primary" />
+            <h3 className="font-display text-xl font-black">Payout bank</h3>
+          </div>
+          <div className="grid gap-3">
+            <Field
+              label="Account number"
+              value={bank.accountNumber}
+              onChange={(accountNumber) => setBank({ ...bank, accountNumber })}
+            />
+            <Field
+              label="Bank code"
+              value={bank.bankCode}
+              onChange={(bankCode) => setBank({ ...bank, bankCode })}
+            />
+            <Field
+              label="Account name"
+              value={bank.accountName}
+              onChange={(accountName) => setBank({ ...bank, accountName })}
+            />
+            <Button className="rounded-full" onClick={saveBank}>
+              Save payout details
+            </Button>
+          </div>
+        </div>
+      </section>
+      <AddressForm
+        title={pickup ? "Update pickup address" : "Add pickup address"}
+        initial={{
+          ...emptyAddress,
+          type: "PICKUP",
+          state: "Lagos",
+          contactName: "",
+          contactPhone: "",
+        }}
+        addressId={pickup?.id}
+        onSaved={onChanged}
       />
-      <FormCard title="Brand operations" icon={Building2}>
-        <Field label="Brand ID" value={brandId} onChange={setBrandId} />
-        {Object.entries(brand).map(([key, value]) => (
-          <Field
-            key={key}
-            label={labelize(key)}
-            value={value}
-            onChange={(next) => setBrand({ ...brand, [key]: next })}
-          />
-        ))}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => run("Save brand draft", () => brandApi.registerDraft(compact(brand)))}
-          >
-            Draft brand
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!brandId}
-            onClick={() => run("Get brand", () => brandApi.get(brandId))}
-          >
-            Get
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!brandId}
-            onClick={() => run("Update brand", () => brandApi.update(brandId, compact(brand)))}
-          >
-            Update
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!brandId}
-            onClick={() => run("Submit verification", () => brandApi.submitVerification(brandId))}
-          >
-            Submit
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!brandId}
-            onClick={() => run("Delete brand", () => brandApi.delete(brandId))}
-          >
-            Delete
-          </Button>
-        </div>
-      </FormCard>
-      <FormCard title="Product management" icon={Package}>
-        <Field label="Product ID" value={productId} onChange={setProductId} />
-        <Field label="Image ID" value={imageId} onChange={setImageId} />
-        <Field label="Category ID" value={categoryId} onChange={setCategoryId} />
-        <Field label="Tag ID" value={tagId} onChange={setTagId} />
-        {Object.entries(product).map(([key, value]) => (
-          <Field
-            key={key}
-            label={labelize(key)}
-            value={value}
-            onChange={(next) => setProduct({ ...product, [key]: next })}
-          />
-        ))}
-        <div className="grid gap-2 rounded-xl bg-secondary/50 p-3">
-          <Field
-            label="Review rating"
-            value={review.rating}
-            onChange={(rating) => setReview({ ...review, rating })}
-          />
-          <Field
-            label="Review comment"
-            value={review.comment}
-            onChange={(comment) => setReview({ ...review, comment })}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() =>
-              run("Update product", () => productApi.update(productId, compact(product)))
-            }
-            disabled={!productId}
-          >
-            Update product
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!productId}
-            onClick={() => run("Delete product", () => productApi.delete(productId))}
-          >
-            Delete
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!productId}
-            onClick={() =>
-              run("Add product image", () =>
-                productApi.addImage(productId, { url: imageId, order: 0 }),
-              )
-            }
-          >
-            Add image URL
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!productId || !imageId}
-            onClick={() =>
-              run("Remove product image", () => productApi.removeImage(productId, imageId))
-            }
-          >
-            Remove image
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!productId}
-            onClick={() =>
-              run("Reorder images", () =>
-                productApi.reorderImages(productId, { imageIds: imageId ? [imageId] : [] }),
-              )
-            }
-          >
-            Reorder
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!productId}
-            onClick={() =>
-              run("Create review", () =>
-                productApi.review(
-                  productId,
-                  compact({ rating: Number(review.rating), comment: review.comment }),
-                ),
-              )
-            }
-          >
-            Review
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!categoryId}
-            onClick={() => run("Products by category", () => productApi.byCategory(categoryId))}
-          >
-            Category feed
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!tagId}
-            onClick={() => run("Products by tag", () => productApi.byTag(tagId))}
-          >
-            Tag feed
-          </Button>
-        </div>
-      </FormCard>
-    </SectionShell>
+      <p className="hidden">{userId}</p>
+    </div>
   );
 }
 
-function Messages({ run }: { run: Runner }) {
-  const [userId, setUserId] = useState("");
-  const [body, setBody] = useState("");
-  return (
-    <SectionShell title="Messages">
-      <ActionGrid
-        title="Message inbox"
-        actions={[
-          { label: "Get conversations", icon: MessageCircle, fn: messageApi.conversations },
-          { label: "Unread count", icon: Mail, fn: messageApi.unreadCount },
-        ]}
-        run={run}
-      />
-      <FormCard title="Conversation" icon={MessageCircle}>
-        <Field label="User ID" value={userId} onChange={setUserId} />
-        <Field label="Message" value={body} onChange={setBody} />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={!userId}
-            onClick={() => run("Get conversation", () => messageApi.conversation(userId))}
-          >
-            Load
-          </Button>
-          <Button
-            disabled={!userId || !body}
-            variant="outline"
-            onClick={() =>
-              run("Send message", () => messageApi.send({ receiverId: userId, content: body }))
-            }
-          >
-            Send
-          </Button>
-          <Button
-            disabled={!userId}
-            variant="outline"
-            onClick={() => run("Mark read", () => messageApi.markRead(userId))}
-          >
-            Mark read
-          </Button>
-        </div>
-      </FormCard>
-    </SectionShell>
-  );
-}
-
-function Payments({ userId, run }: { userId: string; run: Runner }) {
-  const [cardId, setCardId] = useState("");
+function Orders({ purchases, sales }: { purchases: OrderLike[]; sales: OrderLike[] }) {
   const [orderId, setOrderId] = useState("");
-  const [reference, setReference] = useState("");
-  const [addressId, setAddressId] = useState("");
-  const [productId, setProductId] = useState("");
-  const [shipmentId, setShipmentId] = useState("");
-  const [shipmentStatus, setShipmentStatus] = useState("READY_FOR_PICKUP");
-  const [card, setCard] = useState({
-    cardNumber: "",
-    brand: "VISA",
-    expiryMonth: "",
-    expiryYear: "",
-  });
-  const [withdraw, setWithdraw] = useState({
-    amount: "",
-    accountNumber: "",
-    bankCode: "",
-    accountName: "",
-  });
+  const [order, setOrder] = useState<any>();
+  const [shipment, setShipment] = useState<any>();
 
-  return (
-    <SectionShell title="Payments, wallet, and history">
-      <ActionGrid
-        title="Payment reads"
-        actions={[
-          { label: "Saved cards", icon: CreditCard, fn: paymentApi.cards },
-          { label: "Supported banks", icon: Banknote, fn: paymentApi.banks },
-          { label: "Wallet balance", icon: Wallet, fn: () => paymentApi.walletBalance(userId) },
-          { label: "Purchase history", icon: Truck, fn: () => historyApi.purchases({ limit: 20 }) },
-          {
-            label: "Sales history",
-            icon: BadgeDollarSign,
-            fn: () => historyApi.sales({ limit: 20 }),
-          },
-        ]}
-        run={run}
-      />
-      <FormCard title="Cards" icon={CreditCard}>
-        <Field label="Card ID" value={cardId} onChange={setCardId} />
-        {Object.entries(card).map(([key, value]) => (
-          <Field
-            key={key}
-            label={labelize(key)}
-            value={value}
-            onChange={(next) => setCard({ ...card, [key]: next })}
-          />
-        ))}
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => run("Save card", () => paymentApi.saveCard(numberize(card)))}>
-            Save card
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!cardId}
-            onClick={() => run("Set default card", () => paymentApi.defaultCard(cardId))}
-          >
-            Set default
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!cardId}
-            onClick={() => run("Delete card", () => paymentApi.deleteCard(cardId))}
-          >
-            Delete card
-          </Button>
-        </div>
-      </FormCard>
-      <FormCard title="Orders and wallet" icon={Wallet}>
-        <Field label="Product ID" value={productId} onChange={setProductId} />
-        <Field label="Address ID" value={addressId} onChange={setAddressId} />
-        <Field label="Order ID" value={orderId} onChange={setOrderId} />
-        <Field label="Shipment ID" value={shipmentId} onChange={setShipmentId} />
-        <Field label="Shipment status" value={shipmentStatus} onChange={setShipmentStatus} />
-        <Field label="Payment reference" value={reference} onChange={setReference} />
-        {Object.entries(withdraw).map(([key, value]) => (
-          <Field
-            key={key}
-            label={labelize(key)}
-            value={value}
-            onChange={(next) => setWithdraw({ ...withdraw, [key]: next })}
-          />
-        ))}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={!productId || !addressId}
-            onClick={() =>
-              run("Create order", () =>
-                paymentApi.createOrder({
-                  buyerId: userId,
-                  addressId,
-                  items: [{ productId, quantity: 1 }],
-                  callbackUrl: window.location.origin + "/checkout/verify",
-                  deliveryServiceLevel: "STANDARD",
-                }),
-              )
-            }
-          >
-            Create order
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!orderId}
-            onClick={() => run("Get order", () => paymentApi.order(orderId))}
-          >
-            Get order
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!orderId || !reference}
-            onClick={() =>
-              run("Verify payment", () => paymentApi.verifyOrder({ orderId, reference }))
-            }
-          >
-            Verify
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!addressId}
-            onClick={() =>
-              run("Delivery quote", () =>
-                dispatchApi.quote({ addressId, itemCount: 1, serviceLevel: "STANDARD" }),
-              )
-            }
-          >
-            Delivery quote
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!orderId}
-            onClick={() => run("Get shipment", () => dispatchApi.shipment(orderId))}
-          >
-            Get shipment
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!orderId}
-            onClick={() => run("Sync shipment", () => dispatchApi.sync(orderId))}
-          >
-            Sync shipment
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!orderId}
-            onClick={() => run("Create dispatch", () => dispatchApi.create(orderId))}
-          >
-            Create dispatch
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!orderId}
-            onClick={() => run("Cancel dispatch", () => dispatchApi.cancel(orderId))}
-          >
-            Cancel dispatch
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!shipmentId}
-            onClick={() =>
-              run("Update shipment status", () =>
-                dispatchApi.updateShipmentStatus(shipmentId, { status: shipmentStatus }),
-              )
-            }
-          >
-            Update shipment
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!withdraw.amount}
-            onClick={() =>
-              run("Withdraw", () =>
-                paymentApi.withdraw({
-                  userId,
-                  amount: Number(withdraw.amount),
-                  bankDetails: compact({
-                    accountNumber: withdraw.accountNumber,
-                    bankCode: withdraw.bankCode,
-                    accountName: withdraw.accountName,
-                  }),
-                }),
-              )
-            }
-          >
-            Withdraw
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!withdraw.amount}
-            onClick={() =>
-              run("Withdraw saved", () =>
-                paymentApi.withdrawSaved({ userId, amount: Number(withdraw.amount) }),
-              )
-            }
-          >
-            Withdraw saved
-          </Button>
-        </div>
-      </FormCard>
-    </SectionShell>
-  );
-}
-
-function Catalog({ run }: { run: Runner }) {
-  const [categoryId, setCategoryId] = useState("");
-  const [tagId, setTagId] = useState("");
-  const [q, setQ] = useState("");
-  return (
-    <SectionShell title="Catalog discovery">
-      <ActionGrid
-        title="Public catalog"
-        actions={[
-          { label: "Categories", icon: Tags, fn: catalogApi.categories },
-          { label: "Tags", icon: Tags, fn: catalogApi.tags },
-          { label: "Vendors", icon: Building2, fn: () => catalogApi.vendors({ limit: 20 }) },
-          { label: "Top vendors", icon: Building2, fn: () => catalogApi.topVendors({ limit: 20 }) },
-          { label: "Trending", icon: Package, fn: () => productApi.trending({ limit: 20 }) },
-          { label: "Newest", icon: Package, fn: () => productApi.newest({ limit: 20 }) },
-          { label: "On sale", icon: Package, fn: () => productApi.onSale({ limit: 20 }) },
-          { label: "Recommended", icon: Package, fn: () => productApi.recommended({ limit: 20 }) },
-          { label: "Most liked", icon: Package, fn: () => productApi.mostLiked({ limit: 20 }) },
-          { label: "Best selling", icon: Package, fn: () => productApi.bestSelling({ limit: 20 }) },
-          {
-            label: "Followed users feed",
-            icon: Package,
-            fn: () => productApi.followed({ limit: 20 }),
-          },
-        ]}
-        run={run}
-      />
-      <FormCard title="Search and filtered feeds" icon={Search}>
-        <Field label="Search" value={q} onChange={setQ} />
-        <Field label="Category ID" value={categoryId} onChange={setCategoryId} />
-        <Field label="Tag ID" value={tagId} onChange={setTagId} />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() =>
-              run("Unified search", () => catalogApi.search({ q, type: "products", limit: 20 }))
-            }
-          >
-            Search
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!categoryId}
-            onClick={() => run("Category products", () => productApi.byCategory(categoryId))}
-          >
-            Category products
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!tagId}
-            onClick={() => run("Tag products", () => productApi.byTag(tagId))}
-          >
-            Tag products
-          </Button>
-        </div>
-      </FormCard>
-    </SectionShell>
-  );
-}
-
-function Uploads({ run }: { run: Runner }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [files, setFiles] = useState<FileList | null>(null);
-  const [folder, setFolder] = useState("products");
-  const [filename, setFilename] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState("");
-
-  const singleForm = () => {
-    const fd = new FormData();
-    if (file) fd.append("file", file);
-    if (folder) fd.append("folder", folder);
-    return fd;
+  const loadOrder = async () => {
+    if (!orderId) return;
+    try {
+      setOrder(await paymentApi.order(orderId));
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not load order");
+    }
   };
 
-  const multipleForm = () => {
-    const fd = new FormData();
-    Array.from(files ?? []).forEach((item) => fd.append("files", item));
-    if (folder) fd.append("folder", folder);
-    return fd;
+  const loadShipment = async () => {
+    if (!orderId) return;
+    try {
+      setShipment(await dispatchApi.shipment(orderId));
+    } catch (error: any) {
+      toast.error(error.message ?? "Shipment not available yet");
+    }
+  };
+
+  const syncShipment = async () => {
+    if (!orderId) return;
+    try {
+      setShipment(await dispatchApi.sync(orderId));
+      toast.success("Shipment updated");
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not sync shipment");
+    }
   };
 
   return (
-    <SectionShell title="Uploads">
-      <FormCard title="S3 uploads" icon={ImageUp}>
-        <Field label="Folder" value={folder} onChange={setFolder} />
-        <label className="grid gap-1 text-sm">
-          <span className="font-semibold">Single file</span>
-          <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span className="font-semibold">Multiple files</span>
-          <input type="file" multiple onChange={(e) => setFiles(e.target.files)} />
-        </label>
-        <Field label="Presigned filename" value={filename} onChange={setFilename} />
-        <Field label="URL or key to delete" value={deleteTarget} onChange={setDeleteTarget} />
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={!file}
-            onClick={() => run("Upload single", () => uploadApi.single(singleForm()))}
-          >
-            Upload single
+    <div className="grid gap-6 xl:grid-cols-2">
+      <OrderList title="Purchases" orders={purchases} empty="No purchases yet." />
+      <OrderList title="Sales" orders={sales} empty="No sales yet." seller />
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-card xl:col-span-2">
+        <SectionTitle title="Track an order" sub="Check payment and delivery status." />
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <input
+            value={orderId}
+            onChange={(event) => setOrderId(event.target.value)}
+            placeholder="Order ID"
+            className="h-11 flex-1 rounded-xl border border-input bg-background px-3 outline-none focus:border-primary"
+          />
+          <Button onClick={loadOrder}>Load order</Button>
+          <Button variant="outline" onClick={loadShipment}>
+            Shipment
           </Button>
-          <Button
-            variant="outline"
-            disabled={!files?.length}
-            onClick={() => run("Upload multiple", () => uploadApi.multiple(multipleForm()))}
-          >
-            Upload multiple
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!filename}
-            onClick={() =>
-              run("Create presigned URL", () => uploadApi.presignedUrl({ filename, folder }))
-            }
-          >
-            Presigned URL
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!deleteTarget}
-            onClick={() =>
-              run("Delete upload", () =>
-                uploadApi.delete(
-                  deleteTarget.startsWith("http") ? { url: deleteTarget } : { key: deleteTarget },
-                ),
-              )
-            }
-          >
-            Delete file
+          <Button variant="outline" onClick={syncShipment}>
+            Sync
           </Button>
         </div>
-      </FormCard>
-    </SectionShell>
+        {(order || shipment) && (
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {order && <OrderDetail title="Order" value={order} />}
+            {shipment && <OrderDetail title="Shipment" value={shipment} />}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 
-type Runner = (label: string, fn: () => Promise<unknown>) => Promise<unknown>;
-type Action = { label: string; icon: React.ElementType; fn: () => Promise<unknown> };
+function AddressForm({
+  title,
+  initial,
+  addressId,
+  onSaved,
+}: {
+  title: string;
+  initial: typeof emptyAddress;
+  addressId?: string;
+  onSaved: () => Promise<void>;
+}) {
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
 
-function SideButton({
-  id,
+  const save = async () => {
+    setSaving(true);
+    try {
+      const payload = prepareAddressPayload(form);
+      if (addressId) await addressApi.update(addressId, payload);
+      else await addressApi.create(payload);
+      toast.success("Address saved");
+      await onSaved();
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not save address");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+      <h2 className="font-display text-xl font-black">{title}</h2>
+      <div className="mt-4 grid gap-3">
+        <label className="grid gap-1 text-sm">
+          <span className="font-semibold">Type</span>
+          <select
+            value={form.type}
+            onChange={(event) => setForm({ ...form, type: event.target.value })}
+            className="h-10 rounded-xl border border-input bg-background px-3 outline-none focus:border-primary"
+          >
+            <option value="SHIPPING">Shipping</option>
+            <option value="PICKUP">Pickup</option>
+            <option value="BILLING">Billing</option>
+          </select>
+        </label>
+        <Field
+          label="Street address"
+          value={form.address}
+          onChange={(address) => setForm({ ...form, address })}
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="City" value={form.city} onChange={(city) => setForm({ ...form, city })} />
+          <Field
+            label="State"
+            value={form.state}
+            onChange={(state) => setForm({ ...form, state })}
+          />
+        </div>
+        <Field
+          label="Contact name"
+          value={form.contactName}
+          onChange={(contactName) => setForm({ ...form, contactName })}
+        />
+        <Field
+          label="Contact phone"
+          value={form.contactPhone}
+          onChange={(contactPhone) => setForm({ ...form, contactPhone })}
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label="Latitude"
+            value={form.latitude}
+            onChange={(latitude) => setForm({ ...form, latitude })}
+          />
+          <Field
+            label="Longitude"
+            value={form.longitude}
+            onChange={(longitude) => setForm({ ...form, longitude })}
+          />
+        </div>
+        <Field
+          label="Landmark"
+          value={form.landmark}
+          onChange={(landmark) => setForm({ ...form, landmark })}
+        />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.isDefault}
+            onChange={(event) => setForm({ ...form, isDefault: event.target.checked })}
+          />
+          Set as default
+        </label>
+        {form.type === "PICKUP" && (
+          <p className="rounded-xl bg-secondary/70 p-3 text-xs text-muted-foreground">
+            Pickup addresses must be in Lagos and include contact phone plus coordinates.
+          </p>
+        )}
+        <Button className="rounded-full" onClick={save} disabled={saving}>
+          {saving ? "Saving…" : "Save address"}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function AddressCard({ address, onChanged }: { address: Address; onChanged: () => Promise<void> }) {
+  const remove = async () => {
+    try {
+      await addressApi.delete(address.id);
+      toast.success("Address deleted");
+      await onChanged();
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not delete address");
+    }
+  };
+
+  return (
+    <article className="rounded-2xl border border-border bg-card p-4 shadow-card">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-bold">
+            {address.type ?? "Address"}
+          </span>
+          <h3 className="mt-3 font-semibold">{addressLabel(address)}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {address.contactName} {address.contactPhone && `· ${address.contactPhone}`}
+          </p>
+          {address.type === "PICKUP" && (!address.latitude || !address.longitude) && (
+            <p className="mt-2 text-xs font-semibold text-destructive">
+              Pickup needs latitude and longitude.
+            </p>
+          )}
+        </div>
+        <Button variant="outline" size="sm" className="rounded-full" onClick={remove}>
+          Delete
+        </Button>
+      </div>
+    </article>
+  );
+}
+
+function OrderList({
+  title,
+  orders,
+  empty,
+  seller,
+}: {
+  title: string;
+  orders: OrderLike[];
+  empty: string;
+  seller?: boolean;
+}) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+      <SectionTitle title={title} />
+      <div className="mt-4 space-y-3">
+        {orders.length ? (
+          orders.map((order, index) => (
+            <OrderCard key={order.id ?? order.orderId ?? index} order={order} seller={seller} />
+          ))
+        ) : (
+          <EmptyState text={empty} />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function OrderCard({ order, seller }: { order: OrderLike; seller?: boolean }) {
+  return (
+    <article className="rounded-xl border border-border bg-background p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold">{order.id ?? order.orderId ?? "Order"}</p>
+          <p className="text-xs text-muted-foreground">
+            {order.status ?? "Pending"} {order.shipmentStatus && `· ${order.shipmentStatus}`}
+          </p>
+        </div>
+        {order.totalAmount && (
+          <span className="font-display font-black text-primary">
+            {formatNGN(order.totalAmount)}
+          </span>
+        )}
+      </div>
+      {seller && (
+        <div className="mt-3">
+          <FinancialSummary value={order} title="Seller payout" compact mode="seller" />
+        </div>
+      )}
+    </article>
+  );
+}
+
+function OrderDetail({ title, value }: { title: string; value: any }) {
+  const data = value?.data ?? value;
+  return (
+    <article className="rounded-2xl border border-border bg-background p-4">
+      <h3 className="font-display text-lg font-black">{title}</h3>
+      <FinancialSummary value={data} title="Totals" compact />
+      <dl className="mt-3 grid gap-2 text-sm">
+        <Row label="Status" value={data?.status ?? data?.order?.status ?? "Unavailable"} />
+        <Row
+          label="Shipment"
+          value={data?.shipmentStatus ?? data?.shipment?.status ?? "Unavailable"}
+        />
+        {data?.trackingUrl && (
+          <a
+            className="font-semibold text-primary hover:underline"
+            href={data.trackingUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Track delivery
+          </a>
+        )}
+      </dl>
+    </article>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
+      <Icon className="mb-4 h-5 w-5 text-primary" />
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 font-display text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function TabButton({
+  tab,
   active,
-  onClick,
+  setTab,
   icon: Icon,
   label,
 }: {
-  id: Section;
-  active: Section;
-  onClick: (id: Section) => void;
+  tab: Tab;
+  active: Tab;
+  setTab: (tab: Tab) => void;
   icon: React.ElementType;
   label: string;
 }) {
   return (
     <button
-      onClick={() => onClick(id)}
-      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
-        active === id ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
-      }`}
+      onClick={() => setTab(tab)}
+      className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition ${active === tab ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80"}`}
     >
       <Icon className="h-4 w-4" />
       {label}
@@ -1144,148 +619,80 @@ function SideButton({
   );
 }
 
-function SectionShell({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-4">
-      <h2 className="font-display text-2xl font-black">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function ActionGrid({ title, actions, run }: { title: string; actions: Action[]; run: Runner }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
-      <h3 className="mb-3 font-display text-lg font-black">{title}</h3>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        {actions.map((action) => (
-          <button
-            key={action.label}
-            onClick={() => run(action.label, action.fn)}
-            className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-background p-3 text-left transition hover:border-primary"
-          >
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
-              <action.icon className="h-4 w-4" />
-            </span>
-            <span className="text-sm font-semibold">{action.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FormCard({
-  title,
-  icon: Icon,
-  children,
-}: {
-  title: string;
-  icon: React.ElementType;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
-      <div className="mb-4 flex items-center gap-2">
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-4 w-4" />
-        </span>
-        <h3 className="font-display text-lg font-black">{title}</h3>
-      </div>
-      <div className="grid gap-3">{children}</div>
-    </div>
-  );
-}
-
 function Field({
   label,
   value,
   onChange,
-  type = "text",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: string;
 }) {
   return (
     <label className="grid gap-1 text-sm">
       <span className="font-semibold">{label}</span>
       <input
-        type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         className="h-10 rounded-xl border border-input bg-background px-3 outline-none focus:border-primary"
       />
     </label>
   );
 }
 
-function ResultPanel({ state }: { state: RunState }) {
-  const payload = state.loading ? { loading: state.loading } : state.result;
-  if (!payload) return null;
-  const items = unwrapItems<any>(payload as any);
+function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-foreground p-4 text-background shadow-card">
-      <div className="mb-2 flex items-center justify-between gap-4">
-        <h3 className="font-display text-lg font-black">Latest response</h3>
-        {!!items.length && <span className="text-xs opacity-70">{items.length} item(s)</span>}
-      </div>
-      <FinancialSummary value={payload} title="Financial summary" />
-      <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed">
-        {JSON.stringify(payload, null, 2)}
-      </pre>
+    <div>
+      <h2 className="font-display text-2xl font-black">{title}</h2>
+      {sub && <p className="mt-1 text-sm text-muted-foreground">{sub}</p>}
     </div>
   );
 }
 
-function compact<T extends Record<string, unknown>>(value: T): Partial<T> {
+function EmptyState({ text }: { text: string }) {
+  return (
+    <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+      {text}
+    </p>
+  );
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-semibold">{value}</dd>
+    </div>
+  );
+}
+
+function addressLabel(address: Address) {
+  return [address.address ?? address.street, address.city, address.state]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function clean<T extends Record<string, unknown>>(value: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(value).filter(([, item]) => item !== "" && item !== undefined && item !== null),
   ) as Partial<T>;
 }
 
-function numberize<T extends Record<string, unknown>>(value: T): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(compact(value)).map(([key, item]) => {
-      if (key.toLowerCase().includes("month") || key.toLowerCase().includes("year")) {
-        return [key, Number(item)];
-      }
-      return [key, item];
-    }),
-  );
-}
+function prepareAddressPayload(value: typeof emptyAddress) {
+  const payload: Record<string, unknown> = clean(value);
+  if (payload.latitude) payload.latitude = Number(payload.latitude);
+  if (payload.longitude) payload.longitude = Number(payload.longitude);
 
-function normalizeAddress(value: Record<string, unknown>) {
-  const cleaned = compact(value);
-  return Object.fromEntries(
-    Object.entries(cleaned).map(([key, item]) => {
-      if (key === "latitude" || key === "longitude") return [key, Number(item)];
-      return [key, item];
-    }),
-  );
-}
-
-function prepareAddressPayload(value: Record<string, unknown>) {
-  const payload = normalizeAddress(value);
   if (payload.type === "PICKUP") {
     const state = String(payload.state ?? "")
       .trim()
       .toLowerCase();
-    const hasAllowedLagosName = ["lagos", "lagos state", "lagos, nigeria"].includes(state);
-    if (!hasAllowedLagosName) {
-      throw new Error("Pickup address state must be Lagos.");
-    }
-    if (!payload.contactPhone) {
-      throw new Error("Pickup address needs a contact phone.");
-    }
+    if (!["lagos", "lagos state", "lagos, nigeria"].includes(state))
+      throw new Error("Pickup address must be in Lagos.");
+    if (!payload.contactPhone) throw new Error("Pickup address needs a contact phone.");
     if (!Number.isFinite(payload.latitude) || !Number.isFinite(payload.longitude)) {
-      throw new Error("Pickup address needs latitude and longitude coordinates in Lagos.");
+      throw new Error("Pickup address needs Lagos latitude and longitude.");
     }
   }
   return payload;
-}
-
-function labelize(value: string) {
-  return value.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
 }

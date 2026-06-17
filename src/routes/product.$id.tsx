@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, discountedPrice, formatNGN, type Product } from "@/lib/api";
 import { cartApi, productApi } from "@/lib/endpoints";
-import { Heart, ShoppingBag, Shield, Truck, MessageCircle } from "lucide-react";
+import { Heart, ShoppingBag, Shield, Truck, MessageCircle, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
   const [liked, setLiked] = useState(false);
+  const [quantity, setQuantity] = useState(1);
   const [more, setMore] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ function ProductPage() {
         setProduct(r.data);
         setLiked(!!r.data.isLiked);
         setActiveImg(0);
+        setQuantity(1);
       })
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));
@@ -44,9 +46,9 @@ function ProductPage() {
       return;
     }
     try {
-      await cartApi.add({ productId: id, quantity: 1 });
+      await cartApi.add({ productId: id, quantity });
       notifyCartChanged();
-      toast.success("Added to cart");
+      toast.success(`${quantity} item${quantity > 1 ? "s" : ""} added to cart`);
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -66,6 +68,25 @@ function ProductPage() {
       setLiked((v) => !v);
       toast.error(error.message ?? "Could not update like");
     }
+  };
+
+  const messageSeller = () => {
+    if (!user) {
+      navigate({ to: "/login" });
+      return;
+    }
+    if (product?.seller.id === user.id) {
+      toast("This is your listing");
+      return;
+    }
+    navigate({
+      to: "/messages",
+      search: {
+        userId: product?.seller.id,
+        productId: product?.id,
+        name: product?.seller.name,
+      } as any,
+    });
   };
 
   if (loading)
@@ -147,7 +168,24 @@ function ProductPage() {
 
           <p className="text-sm text-foreground/80">{product.description}</p>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+            <div className="inline-flex h-12 items-center justify-between rounded-full border border-input bg-background">
+              <button
+                onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                className="grid h-12 w-12 place-items-center rounded-full hover:bg-secondary"
+                aria-label="Decrease quantity"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-10 text-center font-semibold">{quantity}</span>
+              <button
+                onClick={() => setQuantity((value) => Math.min(10, value + 1))}
+                className="grid h-12 w-12 place-items-center rounded-full hover:bg-secondary"
+                aria-label="Increase quantity"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
             <Button
               onClick={addToCart}
               className="h-12 flex-1 rounded-full text-base font-bold shadow-pop"
@@ -164,23 +202,24 @@ function ProductPage() {
             </Button>
           </div>
 
-          {/* Seller */}
-          <Link
-            to="/profile/$id"
-            params={{ id: product.seller.id }}
-            className="mt-4 flex items-center gap-3 rounded-2xl border border-border p-4 transition hover:border-primary"
-          >
-            <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 font-bold text-primary">
-              {product.seller.name?.[0]?.toUpperCase()}
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold">{product.seller.name}</p>
-              <p className="text-xs text-muted-foreground">View seller's closet →</p>
-            </div>
-            <Button variant="ghost" size="sm" className="rounded-full">
+          <div className="mt-4 flex items-center gap-3 rounded-2xl border border-border p-4">
+            <Link
+              to="/profile/$id"
+              params={{ id: product.seller.id }}
+              className="flex min-w-0 flex-1 items-center gap-3"
+            >
+              <div className="grid h-12 w-12 flex-shrink-0 place-items-center rounded-full bg-primary/10 font-bold text-primary">
+                {product.seller.name?.[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-semibold">{product.seller.name}</p>
+                <p className="text-xs text-muted-foreground">View seller's closet</p>
+              </div>
+            </Link>
+            <Button variant="outline" size="sm" className="rounded-full" onClick={messageSeller}>
               <MessageCircle className="mr-1 h-4 w-4" /> Message
             </Button>
-          </Link>
+          </div>
 
           <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
             <div className="flex items-center gap-2 rounded-xl bg-secondary/60 p-3">
