@@ -204,7 +204,13 @@ function CartPage() {
       toast.success("Checkout prepared");
     } catch (e: any) {
       const message = e.message ?? "Could not start checkout";
-      if (message.toLowerCase().includes("pickup address")) {
+      const lowerMessage = message.toLowerCase();
+      if (lowerMessage.includes("delivery address")) {
+        toast.error(
+          "Your shipping address needs a contact phone plus Lagos latitude and longitude.",
+        );
+        navigate({ to: "/account", search: { tab: "addresses" } as any });
+      } else if (lowerMessage.includes("pickup address")) {
         toast.error(
           "Seller pickup address is missing or invalid. The seller needs a Lagos PICKUP address with phone and coordinates.",
         );

@@ -104,7 +104,7 @@ function hasMoneyFields(value: MoneyObject, fields: readonly (readonly [string, 
 }
 
 function fieldsForMode(mode: SummaryMode) {
-  if (mode === "seller") return [...BUYER_FIELDS, ...SELLER_FIELDS] as const;
+  if (mode === "seller") return [BUYER_FIELDS[0], ...SELLER_FIELDS] as const;
   if (mode === "accounting")
     return [...BUYER_FIELDS, ...SELLER_FIELDS, ...ACCOUNTING_FIELDS] as const;
   return BUYER_FIELDS;

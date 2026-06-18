@@ -9,8 +9,13 @@ export const authApi = {
   me: () => api("/api/auth/me"),
   signin: (body: { email: string; password: string }) =>
     api("/api/auth/signin", { method: "POST", body: json(body) }),
-  signup: (body: { name: string; email: string; password: string; username: string }) =>
-    api("/api/auth/signup", { method: "POST", body: json(body) }),
+  signup: (body: {
+    name: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    username: string;
+  }) => api("/api/auth/signup", { method: "POST", body: json(body) }),
   signout: () => api("/api/auth/signout", { method: "POST", body: json({}) }),
   oauthUrl: (provider: "google" | "apple", next?: string) =>
     `/api/auth/${provider}${queryString({ next })}`,
@@ -151,11 +156,15 @@ export const paymentApi = {
     api("/api/payment/orders/verify-payment", { method: "POST", body: json(body) }),
   order: (orderId: string) => api(`/api/payment/orders/${orderId}`),
   walletBalance: (userId: string) => api(`/api/payment/wallet/${userId}/balance`),
+  withdrawalHistory: (userId: string, params?: Params) =>
+    api(`/api/payment/wallet/${userId}/withdrawals${queryString(params)}`),
   withdraw: (body: Json) =>
     api("/api/payment/wallet/withdraw", { method: "POST", body: json(body) }),
   withdrawSaved: (body: Json) =>
     api("/api/payment/wallet/withdraw-saved", { method: "POST", body: json(body) }),
   banks: () => api("/api/payment/banks"),
+  resolveBank: (body: { accountNumber: string; bankCode?: string; bankName?: string }) =>
+    api("/api/payment/banks/resolve", { method: "POST", body: json(body) }),
 };
 
 export const dispatchApi = {

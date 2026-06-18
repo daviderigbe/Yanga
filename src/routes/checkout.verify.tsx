@@ -200,30 +200,43 @@ function DetailsPanel({
 }) {
   const data = value?.data ?? value;
   const shipment = data?.shipment ?? data;
-  const trackingUrl = shipment?.trackingUrl ?? data?.trackingUrl;
+  const isDelivery = title.toLowerCase().includes("delivery");
+  const trackingUrl = firstDefined(
+    shipment?.trackingUrl,
+    shipment?.tracking_url,
+    data?.trackingUrl,
+    data?.tracking_url,
+  );
+  const reference = firstDefined(
+    data?.reference,
+    data?.paymentReference,
+    data?.paystack?.reference,
+    data?.payment?.reference,
+    fallbackReference,
+  );
+  const trackingId = firstDefined(
+    shipment?.trackingId,
+    shipment?.trackingID,
+    shipment?.trackingNumber,
+    shipment?.trackingNo,
+    shipment?.kwikTrackingId,
+    shipment?.kwikTaskId,
+    shipment?.taskId,
+    data?.trackingId,
+    data?.trackingNumber,
+    trackingIdFromUrl(trackingUrl),
+  );
   return (
     <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
       <h2 className="mb-2 font-display text-lg font-black">{title}</h2>
-      <FinancialSummary value={value} title="Payment summary" />
+      <FinancialSummary value={value} title={isDelivery ? "Delivery summary" : "Payment summary"} />
       <dl className="mt-3 grid gap-2 text-sm">
         <Detail
           label="Status"
           value={data?.order?.status ?? shipment?.status ?? data?.status ?? "Pending"}
         />
-        <Detail
-          label="Reference"
-          value={
-            data?.reference ??
-            data?.paymentReference ??
-            data?.paystack?.reference ??
-            fallbackReference ??
-            "Unavailable"
-          }
-        />
-        <Detail
-          label="Tracking ID"
-          value={shipment?.trackingId ?? shipment?.trackingNumber ?? "Unavailable"}
-        />
+        {!isDelivery && reference && <Detail label="Reference" value={reference} />}
+        {isDelivery && trackingId && <Detail label="Tracking ID" value={trackingId} />}
       </dl>
       {trackingUrl && (
         <a
@@ -237,6 +250,25 @@ function DetailsPanel({
       )}
     </section>
   );
+}
+
+function firstDefined<T>(...values: T[]) {
+  return values.find((value) => value !== undefined && value !== null && value !== "");
+}
+
+function trackingIdFromUrl(value?: unknown) {
+  if (typeof value !== "string") return undefined;
+  try {
+    const url = new URL(value);
+    return (
+      url.searchParams.get("jobID") ??
+      url.searchParams.get("jobId") ??
+      url.searchParams.get("trackingId") ??
+      undefined
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {

@@ -12,21 +12,41 @@ export const Route = createFileRoute("/login")({ component: LoginPage });
 function LoginPage() {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "verify">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [name, setName] = useState("");
   const [userName, setUserName] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "signup" && password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
     setBusy(true);
     try {
-      if (mode === "signin") await signIn(email, password);
-      else await signUp({ email, password, name, userName });
-      toast.success(mode === "signin" ? "Welcome back!" : "Account created");
+      if (mode === "signin") {
+        await signIn(email, password);
+        toast.success("Welcome back!");
+      } else if (mode === "verify") {
+        await authApi.verifyEmail({ email, code: verificationCode });
+        toast.success("Email verified");
+        await signIn(email, password);
+      } else {
+        const result = await signUp({ email, password, confirmPassword, name, userName });
+        if (result.requiresEmailVerification) {
+          toast.success("Check your email for the verification code");
+          setMode("verify");
+          return;
+        }
+        toast.success("Account created");
+      }
       navigate({ to: "/" });
     } catch (e: any) {
       toast.error(e.message);
@@ -60,6 +80,7 @@ function LoginPage() {
             <button
               key={m}
               onClick={() => setMode(m)}
+              type="button"
               className={`flex-1 rounded-full py-2 transition ${mode === m ? "bg-background shadow-soft text-foreground" : "text-muted-foreground"}`}
             >
               {m === "signin" ? "Log in" : "Sign up"}
@@ -68,62 +89,139 @@ function LoginPage() {
         </div>
 
         <form onSubmit={submit} className="space-y-3">
-          {mode === "signup" && (
+          {mode === "verify" ? (
             <>
-              <Field label="Full name">
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                Enter the code sent to {email || "your email"}.
+              </div>
+              <Field label="Email">
                 <input
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="input"
                 />
               </Field>
-              <Field label="Username">
+              <Field label="Verification code">
                 <input
                   required
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
                   className="input"
                 />
               </Field>
             </>
+          ) : (
+            mode === "signup" && (
+              <>
+                <Field label="Full name">
+                  <input
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+                <Field label="Username">
+                  <input
+                    required
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+              </>
+            )
           )}
-          <Field label="Email">
-            <input
-              required
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-            />
-          </Field>
-          <Field label="Password">
-            <div className="relative">
-              <input
-                required
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input password-input"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((value) => !value)}
-                className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </Field>
+          {mode !== "verify" && (
+            <>
+              <Field label="Email">
+                <input
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="Password">
+                <div className="relative">
+                  <input
+                    required
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input password-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+            </>
+          )}
+          {mode === "signup" && (
+            <Field label="Confirm password">
+              <div className="relative">
+                <input
+                  required
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="input password-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((value) => !value)}
+                  className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </Field>
+          )}
           <Button
             type="submit"
             disabled={busy}
             className="mt-2 h-11 w-full rounded-full text-base font-bold"
           >
-            {busy ? "Please wait…" : mode === "signin" ? "Log in" : "Create account"}
+            {busy
+              ? "Please wait…"
+              : mode === "signin"
+                ? "Log in"
+                : mode === "verify"
+                  ? "Verify email"
+                  : "Create account"}
           </Button>
         </form>
+
+        {mode === "verify" && (
+          <Button
+            variant="ghost"
+            className="mt-3 w-full rounded-full"
+            onClick={async () => {
+              try {
+                await authApi.resendEmailCode(email);
+                toast.success("Verification code resent");
+              } catch (error: any) {
+                toast.error(error.message ?? "Could not resend code");
+              }
+            }}
+          >
+            Resend code
+          </Button>
+        )}
 
         <div className="mt-5 grid gap-2">
           <Button

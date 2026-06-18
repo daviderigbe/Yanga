@@ -16,9 +16,10 @@ interface AuthCtx {
   signUp: (input: {
     email: string;
     password: string;
+    confirmPassword: string;
     name: string;
     userName: string;
-  }) => Promise<void>;
+  }) => Promise<{ requiresEmailVerification?: boolean; user?: User }>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -56,13 +57,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const r = (await authApi.signup({
       email: input.email,
       password: input.password,
+      confirmPassword: input.confirmPassword,
       name: input.name,
       username: input.userName,
     })) as any;
     const token = r?.data?.token || r?.data?.accessToken;
     if (token) setToken(token);
-    setUser(r?.data?.user ?? null);
-    if (!r?.data?.user) await refresh();
+    if (token && r?.data?.user) setUser(r.data.user);
+    else if (!r?.data?.requiresEmailVerification) {
+      setUser(r?.data?.user ?? null);
+      if (!r?.data?.user) await refresh();
+    }
+    return {
+      requiresEmailVerification: r?.data?.requiresEmailVerification,
+      user: r?.data?.user,
+    };
   };
 
   const signOut = async () => {
