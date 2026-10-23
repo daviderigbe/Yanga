@@ -49,7 +49,7 @@ function Index() {
               <span className="text-primary">Sold by you.</span>
             </h1>
             <p className="max-w-md text-lg text-muted-foreground">
-              Hunt vintage finds, drop your fits, and earn from your wardrobe. Afra B is the fashion
+              Hunt vintage finds, drop your fits, and earn from your wardrobe. Yanga is the fashion
               marketplace built for us.
             </p>
             <div className="max-w-xl">

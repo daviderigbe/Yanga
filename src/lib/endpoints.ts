@@ -195,3 +195,10 @@ export const uploadApi = {
 export const realtimeApi = {
   wsToken: () => api("/api/ws-token"),
 };
+
+export const notificationApi = {
+  list: (params?: Params) => api(`/api/notifications${queryString(params)}`),
+  unreadCount: () => api("/api/notifications/unread/count"),
+  markRead: (id: string) => api(`/api/notifications/${id}/read`, { method: "PUT" }),
+  markAllRead: () => api("/api/notifications/read-all", { method: "PUT" }),
+};

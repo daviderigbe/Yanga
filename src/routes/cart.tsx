@@ -189,7 +189,7 @@ function CartPage() {
 
       if (orderId || reference) {
         localStorage.setItem(
-          "afrab_checkout_pending",
+          "yanga_checkout_pending",
           JSON.stringify({ orderId, reference, createdAt: Date.now() }),
         );
       }

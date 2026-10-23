@@ -8,6 +8,8 @@ interface User {
   name: string;
   userName?: string;
   emailVerified: boolean;
+  bio?: string;
+  imageUrl?: string;
 }
 interface AuthCtx {
   user: User | null;

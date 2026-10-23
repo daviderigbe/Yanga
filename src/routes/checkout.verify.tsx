@@ -49,7 +49,7 @@ function CheckoutVerifyPage() {
       const response = await paymentApi.verifyOrder({ orderId, reference });
       setResult(response);
       setStatus("verified");
-      localStorage.removeItem("afrab_checkout_pending");
+      localStorage.removeItem("yanga_checkout_pending");
       notifyCartChanged();
       toast.success("Payment verified");
       await loadShipment(orderId);
@@ -283,7 +283,7 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
 function readPendingCheckout() {
   if (typeof window === "undefined") return null;
   try {
-    return JSON.parse(localStorage.getItem("afrab_checkout_pending") || "null") as {
+    return JSON.parse(localStorage.getItem("yanga_checkout_pending") || "null") as {
       orderId?: string;
       reference?: string;
     } | null;

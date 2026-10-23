@@ -12,7 +12,7 @@ export const Route = createFileRoute("/login")({ component: LoginPage });
 function LoginPage() {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup" | "verify">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "verify" | "forgot" | "reset">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,10 +22,18 @@ function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "signup" && password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (mode === "reset" && newPassword !== confirmNewPassword) {
       toast.error("Passwords do not match");
       return;
     }
@@ -34,10 +42,25 @@ function LoginPage() {
       if (mode === "signin") {
         await signIn(email, password);
         toast.success("Welcome back!");
+        navigate({ to: "/" });
       } else if (mode === "verify") {
         await authApi.verifyEmail({ email, code: verificationCode });
         toast.success("Email verified");
         await signIn(email, password);
+        navigate({ to: "/" });
+      } else if (mode === "forgot") {
+        await authApi.requestPasswordReset(email);
+        toast.success("If that email exists, a reset code is on its way");
+        setMode("reset");
+      } else if (mode === "reset") {
+        await authApi.verifyResetCode({ email, code: resetCode });
+        await authApi.resetPassword({ email, code: resetCode, newPassword });
+        toast.success("Password reset. Log in with your new password.");
+        setPassword("");
+        setResetCode("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+        setMode("signin");
       } else {
         const result = await signUp({ email, password, confirmPassword, name, userName });
         if (result.requiresEmailVerification) {
@@ -46,8 +69,8 @@ function LoginPage() {
           return;
         }
         toast.success("Account created");
+        navigate({ to: "/" });
       }
-      navigate({ to: "/" });
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -75,20 +98,91 @@ function LoginPage() {
       </div>
 
       <div className="rounded-3xl border border-border bg-card p-6 shadow-card md:p-8">
-        <div className="mb-6 flex rounded-full bg-secondary p-1 text-sm font-semibold">
-          {(["signin", "signup"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              type="button"
-              className={`flex-1 rounded-full py-2 transition ${mode === m ? "bg-background shadow-soft text-foreground" : "text-muted-foreground"}`}
-            >
-              {m === "signin" ? "Log in" : "Sign up"}
-            </button>
-          ))}
-        </div>
+        {mode === "signin" || mode === "signup" ? (
+          <div className="mb-6 flex rounded-full bg-secondary p-1 text-sm font-semibold">
+            {(["signin", "signup"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                type="button"
+                className={`flex-1 rounded-full py-2 transition ${mode === m ? "bg-background shadow-soft text-foreground" : "text-muted-foreground"}`}
+              >
+                {m === "signin" ? "Log in" : "Sign up"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMode("signin")}
+            className="mb-6 text-sm font-semibold text-primary hover:underline"
+          >
+            ← Back to log in
+          </button>
+        )}
 
         <form onSubmit={submit} className="space-y-3">
+          {mode === "forgot" && (
+            <>
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                Enter your email and we'll send you a reset code.
+              </div>
+              <Field label="Email">
+                <input
+                  required
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input"
+                />
+              </Field>
+            </>
+          )}
+          {mode === "reset" && (
+            <>
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm">
+                Enter the code sent to {email || "your email"} and choose a new password.
+              </div>
+              <Field label="Reset code">
+                <input
+                  required
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value)}
+                  className="input"
+                />
+              </Field>
+              <Field label="New password">
+                <div className="relative">
+                  <input
+                    required
+                    minLength={8}
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="input password-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((value) => !value)}
+                    className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    aria-label={showNewPassword ? "Hide password" : "Show password"}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+              <Field label="Confirm new password">
+                <input
+                  required
+                  minLength={8}
+                  type={showNewPassword ? "text" : "password"}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  className="input password-input"
+                />
+              </Field>
+            </>
+          )}
           {mode === "verify" ? (
             <>
               <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm">
@@ -134,7 +228,7 @@ function LoginPage() {
               </>
             )
           )}
-          {mode !== "verify" && (
+          {(mode === "signin" || mode === "signup") && (
             <>
               <Field label="Email">
                 <input
@@ -164,6 +258,15 @@ function LoginPage() {
                   </button>
                 </div>
               </Field>
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={() => setMode("forgot")}
+                  className="-mt-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  Forgot password?
+                </button>
+              )}
             </>
           )}
           {mode === "signup" && (
@@ -202,7 +305,11 @@ function LoginPage() {
                 ? "Log in"
                 : mode === "verify"
                   ? "Verify email"
-                  : "Create account"}
+                  : mode === "forgot"
+                    ? "Send reset code"
+                    : mode === "reset"
+                      ? "Reset password"
+                      : "Create account"}
           </Button>
         </form>
 
@@ -223,26 +330,45 @@ function LoginPage() {
           </Button>
         )}
 
-        <div className="mt-5 grid gap-2">
+        {mode === "reset" && (
           <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => {
-              window.location.href = `${API_BASE}${authApi.oauthUrl("google", "/")}`;
+            variant="ghost"
+            className="mt-3 w-full rounded-full"
+            onClick={async () => {
+              try {
+                await authApi.requestPasswordReset(email);
+                toast.success("Reset code resent");
+              } catch (error: any) {
+                toast.error(error.message ?? "Could not resend code");
+              }
             }}
           >
-            Continue with Google
+            Resend code
           </Button>
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => {
-              window.location.href = `${API_BASE}${authApi.oauthUrl("apple", "/")}`;
-            }}
-          >
-            Continue with Apple
-          </Button>
-        </div>
+        )}
+
+        {(mode === "signin" || mode === "signup") && (
+          <div className="mt-5 grid gap-2">
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                window.location.href = `${API_BASE}${authApi.oauthUrl("google", "/")}`;
+              }}
+            >
+              Continue with Google
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                window.location.href = `${API_BASE}${authApi.oauthUrl("apple", "/")}`;
+              }}
+            >
+              Continue with Apple
+            </Button>
+          </div>
+        )}
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
           By continuing you agree to our{" "}

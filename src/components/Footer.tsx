@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Logomark } from "@/components/Logomark";
 
 export function Footer() {
   return (
@@ -6,15 +7,13 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 md:grid-cols-4">
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary font-display text-lg font-black text-primary-foreground">
-              A
-            </div>
+            <Logomark />
             <span className="font-display text-lg font-extrabold tracking-tight">
-              Afra<span className="text-primary">B</span>
+              Yang<span className="text-primary">a</span>
             </span>
           </div>
           <p className="max-w-xs text-sm text-muted-foreground">
-            Africa's marketplace for second‑life fashion. Buy, sell, repeat.
+            Nigeria's home for thrift fashion. Buy, sell, and slay for less.
           </p>
         </div>
         <Col title="Shop">
@@ -37,7 +36,7 @@ export function Footer() {
         </Col>
       </div>
       <div className="border-t border-border py-5 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Afra B. Made in Lagos.
+        © {new Date().getFullYear()} Yanga. Made in Lagos.
       </div>
     </footer>
   );

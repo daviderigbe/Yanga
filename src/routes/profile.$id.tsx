@@ -182,11 +182,11 @@ function SellerListings({ products, loading }: { products: Product[]; loading: b
                 <p className="font-display text-base font-semibold">{formatNGN(price)}</p>
                 <p className="truncate text-sm text-foreground/80">{product.title}</p>
               </div>
-              <a href={`/product/${product.id}/edit`}>
+              <Link to="/product/$id/edit" params={{ id: product.id }}>
                 <Button variant="outline" size="sm" className="w-full rounded-full">
                   Edit listing
                 </Button>
-              </a>
+              </Link>
             </div>
           </div>
         );

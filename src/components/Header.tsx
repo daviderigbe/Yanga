@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { Logomark } from "@/components/Logomark";
+import { NotificationBell } from "@/components/NotificationBell";
 import { unwrapItems } from "@/lib/api";
 import { cartApi } from "@/lib/endpoints";
 import { CART_CHANGED_EVENT } from "@/lib/cart-events";
@@ -67,11 +69,9 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 md:gap-6">
         <Link to="/" className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary font-display text-lg font-black text-primary-foreground shadow-soft">
-            A
-          </div>
+          <Logomark />
           <span className="hidden font-display text-lg font-extrabold tracking-tight sm:block">
-            Afra<span className="text-primary">B</span>
+            Yang<span className="text-primary">a</span>
           </span>
         </Link>
 
@@ -103,6 +103,7 @@ export function Header() {
               <Plus className="h-4 w-4" /> Sell
             </Button>
           </Link>
+          {user && <NotificationBell />}
           <Link
             to="/likes"
             className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary"

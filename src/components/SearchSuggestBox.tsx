@@ -204,7 +204,7 @@ export function SearchSuggestBox({
                           <p className="truncate text-xs text-muted-foreground">
                             {product.brand?.name ??
                               product.categories?.[0]?.category.name ??
-                              "Afra B"}{" "}
+                              "Yanga"}{" "}
                             · {formatNGN(product.basePrice)}
                           </p>
                         </div>

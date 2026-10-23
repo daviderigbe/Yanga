@@ -1,4 +1,4 @@
-export const CART_CHANGED_EVENT = "afrab:cart-changed";
+export const CART_CHANGED_EVENT = "yanga:cart-changed";
 
 export function notifyCartChanged() {
   if (typeof window === "undefined") return;

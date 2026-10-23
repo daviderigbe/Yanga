@@ -493,7 +493,7 @@ function mergeThreadNames(current: Record<string, string>, person?: Person) {
   return { ...current, [person.id]: name };
 }
 
-const NAMES_STORAGE_KEY = "afrab_message_names";
+const NAMES_STORAGE_KEY = "yanga_message_names";
 
 function readStoredNames(): Record<string, string> {
   if (typeof window === "undefined") return {};

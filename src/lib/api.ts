@@ -6,7 +6,7 @@ export const API_BASE = (
   DEFAULT_API_BASE
 ).replace(/\/$/, "");
 
-const TOKEN_KEY = "afrab_token";
+const TOKEN_KEY = "yanga_token";
 
 export class ApiError extends Error {
   status: number;

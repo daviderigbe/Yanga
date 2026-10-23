@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { addressApi, dispatchApi, historyApi, paymentApi, userApi } from "@/lib/endpoints";
+import { addressApi, dispatchApi, historyApi, paymentApi, uploadApi, userApi } from "@/lib/endpoints";
 import { formatNGN, unwrapItems } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,10 @@ import { FinancialSummary } from "@/components/FinancialSummary";
 import { toast } from "sonner";
 import {
   Banknote,
+  Camera,
   ChevronDown,
+  Eye,
+  EyeOff,
   Home,
   MapPin,
   Package,
@@ -20,7 +23,7 @@ import {
   Wallet,
 } from "lucide-react";
 
-type Tab = "overview" | "addresses" | "orders" | "wallet" | "seller";
+type Tab = "overview" | "addresses" | "orders" | "wallet" | "seller" | "settings";
 
 export const Route = createFileRoute("/account")({
   validateSearch: (search: Record<string, unknown>): { tab?: Tab } => ({
@@ -111,7 +114,8 @@ function isTab(value: unknown): value is Tab {
     value === "addresses" ||
     value === "orders" ||
     value === "wallet" ||
-    value === "seller"
+    value === "seller" ||
+    value === "settings"
   );
 }
 
@@ -264,7 +268,7 @@ function mergeOrderDetail(order: OrderLike, detail: unknown): OrderLike {
 }
 
 function AccountPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh: refreshAuth } = useAuth();
   const navigate = useNavigate();
   const search = Route.useSearch();
   const [tab, setTab] = useState<Tab>(search.tab ?? "overview");
@@ -329,7 +333,7 @@ function AccountPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">My Afra B</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary">My Yanga</p>
           <h1 className="font-display text-3xl font-black md:text-4xl">Account</h1>
           <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
         </div>
@@ -344,6 +348,7 @@ function AccountPage() {
         <TabButton tab="orders" active={tab} setTab={setTab} icon={Receipt} label="Orders" />
         <TabButton tab="wallet" active={tab} setTab={setTab} icon={Wallet} label="Wallet" />
         <TabButton tab="seller" active={tab} setTab={setTab} icon={Package} label="Seller" />
+        <TabButton tab="settings" active={tab} setTab={setTab} icon={Settings} label="Settings" />
       </div>
 
       {tab === "overview" && (
@@ -362,6 +367,12 @@ function AccountPage() {
       )}
       {tab === "seller" && (
         <Seller addresses={addresses} userId={user.id} savedBank={savedBank} onChanged={refresh} />
+      )}
+      {tab === "settings" && (
+        <SettingsPanel
+          user={user}
+          onProfileUpdated={refreshAuth}
+        />
       )}
     </div>
   );
@@ -783,6 +794,229 @@ function Seller({
       />
       <p className="hidden">{userId}</p>
     </div>
+  );
+}
+
+function SettingsPanel({
+  user,
+  onProfileUpdated,
+}: {
+  user: { id: string; name: string; userName?: string; bio?: string; imageUrl?: string };
+  onProfileUpdated: () => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    name: user.name ?? "",
+    username: user.userName ?? "",
+    bio: user.bio ?? "",
+  });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState(user.imageUrl ?? "");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  useEffect(() => {
+    if (!avatarFile) return;
+    const url = URL.createObjectURL(avatarFile);
+    setAvatarPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [avatarFile]);
+
+  const saveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingProfile(true);
+    try {
+      let imageUrl = user.imageUrl;
+      if (avatarFile) {
+        const formData = new FormData();
+        formData.append("file", avatarFile);
+        formData.append("folder", "avatars");
+        const uploadResponse = await uploadApi.single(formData);
+        imageUrl = extractUploadUrl(uploadResponse) ?? imageUrl;
+      }
+      await userApi.editProfile(user.id, {
+        name: form.name.trim(),
+        username: form.username.trim(),
+        bio: form.bio.trim(),
+        image: imageUrl,
+      });
+      toast.success("Profile updated");
+      setAvatarFile(null);
+      await onProfileUpdated();
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not update profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+        <SectionTitle title="Profile" sub="Update how you appear to buyers and sellers." />
+        <form onSubmit={saveProfile} className="mt-4 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-primary/10 text-xl font-bold text-primary">
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  (form.name?.[0]?.toUpperCase() ?? "?")
+                )}
+              </div>
+              <label className="absolute -bottom-1 -right-1 grid h-7 w-7 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground shadow-soft">
+                <Camera className="h-3.5 w-3.5" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground">Tap the camera to change your photo.</p>
+          </div>
+          <Field
+            label="Full name"
+            value={form.name}
+            onChange={(name) => setForm((current) => ({ ...current, name }))}
+          />
+          <Field
+            label="Username"
+            value={form.username}
+            onChange={(username) => setForm((current) => ({ ...current, username }))}
+          />
+          <label className="grid gap-1 text-sm">
+            <span className="font-semibold">Bio</span>
+            <textarea
+              rows={3}
+              value={form.bio}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, bio: event.target.value }))
+              }
+              className="rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              placeholder="Tell buyers about your style"
+            />
+          </label>
+          <Button className="rounded-full" disabled={savingProfile}>
+            {savingProfile ? "Saving…" : "Save profile"}
+          </Button>
+        </form>
+      </section>
+
+      <ChangePasswordCard userId={user.id} />
+    </div>
+  );
+}
+
+function ChangePasswordCard({ userId }: { userId: string }) {
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [show, setShow] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    setSaving(true);
+    try {
+      await userApi.changePassword(userId, { oldPassword, newPassword });
+      toast.success("Password updated");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not update password");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+      <SectionTitle title="Password" sub="Use a strong password you don't use anywhere else." />
+      <form onSubmit={submit} className="mt-4 space-y-4">
+        <PasswordField
+          label="Current password"
+          value={oldPassword}
+          onChange={setOldPassword}
+          show={show}
+          onToggle={() => setShow((value) => !value)}
+        />
+        <PasswordField
+          label="New password"
+          value={newPassword}
+          onChange={setNewPassword}
+          show={show}
+          onToggle={() => setShow((value) => !value)}
+        />
+        <PasswordField
+          label="Confirm new password"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+          show={show}
+          onToggle={() => setShow((value) => !value)}
+        />
+        <Button className="rounded-full" disabled={saving}>
+          {saving ? "Updating…" : "Update password"}
+        </Button>
+      </form>
+    </section>
+  );
+}
+
+function PasswordField({
+  label,
+  value,
+  onChange,
+  show,
+  onToggle,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  show: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <label className="grid gap-1 text-sm">
+      <span className="font-semibold">{label}</span>
+      <div className="relative">
+        <input
+          type={show ? "text" : "password"}
+          required
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-10 w-full rounded-xl border border-input bg-background px-3 pr-10 outline-none focus:border-primary"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-2 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
+          aria-label={show ? "Hide password" : "Show password"}
+        >
+          {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </label>
+  );
+}
+
+function extractUploadUrl(response: any): string | undefined {
+  const data = response?.data ?? response;
+  return (
+    data?.url ??
+    data?.fileUrl ??
+    data?.location ??
+    data?.urls?.[0] ??
+    data?.files?.[0]?.url ??
+    data?.files?.[0]
   );
 }
 

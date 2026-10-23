@@ -137,7 +137,7 @@ function ProductPage() {
         <div className="space-y-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              {product.brand?.name ?? product.categories?.[0]?.category.name ?? "Afra B"}
+              {product.brand?.name ?? product.categories?.[0]?.category.name ?? "Yanga"}
             </p>
             <h1 className="font-display text-3xl font-black md:text-4xl">{product.title}</h1>
           </div>

@@ -1,6 +1,6 @@
-# Afra B Frontend
+# Yanga Frontend
 
-Local frontend for the Afra B marketplace app. The app is a Vite + React + TanStack Router project exported from Lovable and wired to the Afra B backend API.
+Local frontend for the Yanga marketplace app. The app is a Vite + React + TanStack Router project exported from Lovable and wired to the Yanga backend API.
 
 ## Requirements
 

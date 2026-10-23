@@ -28,24 +28,24 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Afra B — Buy & sell pre‑loved fashion in Africa" },
+      { title: "Yanga — Buy & Sell Thrift Fashion in Nigeria" },
       {
         name: "description",
         content:
-          "Afra B is Africa's marketplace for pre‑loved and unique fashion. Discover one‑of‑a‑kind pieces or sell from your closet.",
+          "Yanga is Nigeria's marketplace for pre‑loved and unique fashion. Discover one‑of‑a‑kind clothes and shoes, or turn your closet into cash.",
       },
-      { property: "og:title", content: "Afra B — Buy & sell pre‑loved fashion in Africa" },
+      { property: "og:title", content: "Yanga — Buy & Sell Thrift Fashion in Nigeria" },
       {
         property: "og:description",
         content:
-          "Afra B is Africa's marketplace for pre‑loved and unique fashion. Discover one‑of‑a‑kind pieces or sell from your closet.",
+          "Yanga is Nigeria's marketplace for pre‑loved and unique fashion. Discover one‑of‑a‑kind clothes and shoes, or turn your closet into cash.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:title", content: "Afra B — Buy & sell pre‑loved fashion in Africa" },
+      { name: "twitter:title", content: "Yanga — Buy & Sell Thrift Fashion in Nigeria" },
       {
         name: "twitter:description",
         content:
-          "Afra B is Africa's marketplace for pre‑loved and unique fashion. Discover one‑of‑a‑kind pieces or sell from your closet.",
+          "Yanga is Nigeria's marketplace for pre‑loved and unique fashion. Discover one‑of‑a‑kind clothes and shoes, or turn your closet into cash.",
       },
       {
         property: "og:image",
@@ -60,6 +60,7 @@ export const Route = createRootRoute({
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
